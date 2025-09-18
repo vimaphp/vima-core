@@ -7,11 +7,12 @@ class Role
     public function __construct(
         private string $name,
         /** @var Permission[] */
-        private array $permissions = [] // array of strings (permission names)
+        private array $permissions = [],
+        private ?string $description = null,
     ) {
     }
 
-    public static function define(string $name, array $permissions = []): self
+    public static function define(string $name, array $permissions = [], ?string $description = null): self
     {
         $role = new self($name);
 
@@ -20,12 +21,19 @@ class Role
             $role->addPermission($permission);
         }
 
+        $role->description = $description;
+
         return $role;
     }
 
     public function getName(): string
     {
         return $this->name;
+    }
+
+    public function getDescription(): ?string
+    {
+        return $this->description;
     }
 
     /** @return Permission[] */
