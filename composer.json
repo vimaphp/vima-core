@@ -1,0 +1,42 @@
+{
+  "name": "vima/core",
+  "description": "Framework-agnostic RBAC + ABAC access control engine with pluggable storage backends and a built-in CLI.",
+  "type": "library",
+  "license": "MIT",
+  "authors": [
+    {
+      "name": "Ian Ochieng",
+      "email": "ochiengian383@gmail.com"
+    }
+  ],
+  "require": {
+    "php": ">=8.1",
+    "symfony/console": "^7.3"
+  },
+  "autoload": {
+    "psr-4": {
+      "Vima\\Core\\": "src/"
+    }
+  },
+  "autoload-dev": {
+    "psr-4": {
+      "Vima\\Core\\Tests\\": "tests/"
+    }
+  },
+  "bin": [
+    "bin/vima"
+  ],
+  "scripts": {
+    "test": "phpunit"
+  },
+  "minimum-stability": "stable",
+  "prefer-stable": true,
+  "require-dev": {
+    "pestphp/pest": "^4.1"
+  },
+  "config": {
+    "allow-plugins": {
+      "pestphp/pest-plugin": true
+    }
+  }
+}
