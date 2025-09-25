@@ -10,6 +10,19 @@ class PolicyRegistry implements PolicyRegistryInterface
     /** @var array<string, callable> */
     private array $policies = [];
 
+    private static $instance = null;
+
+    public static function instance(): PolicyRegistry
+    {
+        $instance = self::$instance;
+
+        if ($instance === null) {
+            $instance = new self();
+        }
+
+        return $instance;
+    }
+
     public function register(string $ability, callable $callback): void
     {
         $this->policies[$ability] = $callback;
@@ -32,7 +45,7 @@ class PolicyRegistry implements PolicyRegistryInterface
      */
     public static function define(array $rules): self
     {
-        $registry = new self();
+        $registry = self::instance();
 
         foreach ($rules as $ability => $callback) {
             $registry->register($ability, $callback);
