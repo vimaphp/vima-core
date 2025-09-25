@@ -2,7 +2,7 @@
 
 **Vima Core** is a framework-independent **authorization library** that provides a clean foundation for **RBAC (Role-Based Access Control)** and **ABAC (Attribute-Based Access Control)**.
 
-It is designed to be extended by framework-specific packages (e.g. `vima/laravel`, `vima/symfony`) while staying lightweight and testable at the core.
+It is designed to be extended by framework-specific packages (e.g. `vima/tempest`, `vima/codeigniter`) while staying lightweight and testable at the core.
 
 ---
 
