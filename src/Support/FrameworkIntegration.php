@@ -2,6 +2,12 @@
 
 namespace Vima\Core\Support;
 
+use Vima\Core\Config\Columns;
+use Vima\Core\Config\PermissionColumns;
+use Vima\Core\Config\RoleColumns;
+use Vima\Core\Config\RolePermissionColumns;
+use Vima\Core\Config\Tables;
+use Vima\Core\Config\UserRoleColumns;
 use Vima\Core\Contracts\RoleRepositoryInterface;
 use Vima\Core\Contracts\PermissionRepositoryInterface;
 use Vima\Core\Services\PolicyRegistry;
@@ -13,41 +19,22 @@ class FrameworkIntegration
      *
      * @return array<string, string> [alias => default table name]
      */
-    public static function requiredTables(): array
+    public static function requiredTables(): Tables
     {
-        return [
-            'roles' => 'roles',
-            'permissions' => 'permissions',
-            'role_permission' => 'role_permission',
-            'user_roles' => 'user_roles',
-        ];
+        return new Tables();
     }
 
     /**
      * Columns required for each table.
      */
-    public static function requiredColumns(): array
+    public static function requiredColumns(): Columns
     {
-        return [
-            'roles' => [
-                'id' => 'id',
-                'name' => 'name',
-                'description' => 'description',
-            ],
-            'permissions' => [
-                'id' => 'id',
-                'name' => 'name',
-                'description' => 'description',
-            ],
-            'role_permission' => [
-                'role_id' => 'role_id',
-                'permission_id' => 'permission_id',
-            ],
-            'user_roles' => [
-                'user_id' => 'user_id',
-                'role_id' => 'role_id',
-            ],
-        ];
+        return new Columns(
+            roles: new RoleColumns(),
+            permissions: new PermissionColumns(),
+            userRoles: new UserRoleColumns(),
+            rolePermission: new RolePermissionColumns()
+        );
     }
 
     /**
@@ -55,9 +42,9 @@ class FrameworkIntegration
      *
      * @return array<string, string>
      */
-    public static function repositoryContracts(): array
+    public static function repositoryContracts(): object
     {
-        return [
+        return (object) [
             'roles' => RoleRepositoryInterface::class,
             'permissions' => PermissionRepositoryInterface::class,
         ];
@@ -66,12 +53,12 @@ class FrameworkIntegration
     /**
      * Provides helper functions a framework can wire up.
      */
-    public static function helpers(): array
+    public static function helpers(): object
     {
-        return [
-            'vima()' => 'Returns AccessManager service instance',
-            'can()' => 'Check if a user has a given permission',
-            'isRole()' => 'Check if a user has a given role',
+        return (object) [
+            'vima' => 'Returns AccessManager service instance',
+            'can' => 'Check if a user has a given permission',
+            'isRole' => 'Check if a user has a given role',
         ];
     }
 

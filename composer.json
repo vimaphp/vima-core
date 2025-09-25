@@ -3,7 +3,7 @@
   "description": "Framework-agnostic RBAC + ABAC access control engine with pluggable storage backends and a built-in CLI.",
   "type": "library",
   "license": "MIT",
-  "version": "0.0.5",
+  "version": "0.0.6",
   "authors": [
     {
       "name": "Ian Ochieng",
