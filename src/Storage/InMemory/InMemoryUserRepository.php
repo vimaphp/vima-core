@@ -17,7 +17,7 @@ class InMemoryUserRepository implements UserRepositoryInterface
 
     public function save(UserInterface $user): void
     {
-        $this->users[$user->getId()] = $user;
+        $this->users[$user->vimaGetId()] = $user;
     }
 
     public function delete(string|int $id): void

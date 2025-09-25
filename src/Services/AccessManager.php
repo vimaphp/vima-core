@@ -2,6 +2,7 @@
 
 namespace Vima\Core\Services;
 
+use Vima\Core\Config\VimaConfig;
 use Vima\Core\Contracts\AccessManagerInterface;
 use Vima\Core\Contracts\PolicyRegistryInterface;
 use Vima\Core\Contracts\UserInterface;
@@ -14,13 +15,17 @@ class AccessManager implements AccessManagerInterface
     public function __construct(
         private RoleRepositoryInterface $roles,
         private PermissionRepositoryInterface $permissions,
-        private ?PolicyRegistryInterface $policies = null
+        private ?PolicyRegistryInterface $policies = null,
+        private readonly ?VimaConfig $config = null,
     ) {
     }
 
-    public function userHasPermission(UserInterface $user, string $permission): bool
+    public function userHasPermission(object $user, string $permission): bool
     {
-        foreach ($user->getRoles() as $role) {
+        $resolver = new UserResolver($this->config);
+        $roles = $resolver->resolveRoles($user);
+
+        foreach ($roles as $role) {
             foreach ($role->getPermissions() as $perm) {
                 if ($perm->getName() === $permission) {
                     return true;
@@ -34,28 +39,28 @@ class AccessManager implements AccessManagerInterface
     /**
      * Combined RBAC + ABAC check.
      */
-    public function can(UserInterface $user, string $permission, mixed $resource = null): bool
+    public function can(UserInterface $user, string $permission, ...$arguments): bool
     {
         if (!$this->userHasPermission($user, $permission)) {
             return false;
         }
 
-        if ($resource !== null) {
-            return $this->evaluatePolicy($user, $permission, $resource);
+        if (!empty($arguments)) {
+            return $this->evaluatePolicy($user, $permission, ...$arguments);
         }
 
         return true;
     }
 
-    public function authorize(UserInterface $user, string $permission, mixed $resource = null): void
+    public function authorize(UserInterface $user, string $permission, ...$arguments): void
     {
-        if (!$this->can($user, $permission, $resource)) {
+        if (!$this->can($user, $permission, ...$arguments)) {
             // third param of AccessDeniedException is optional resource description
-            throw new AccessDeniedException($user, $permission, is_object($resource) ? get_class($resource) : (string) $resource);
+            throw new AccessDeniedException($user, $permission, $this->config);
         }
     }
 
-    public function evaluatePolicy(UserInterface $user, string $action, mixed $resource): bool
+    public function evaluatePolicy(UserInterface $user, string $action, ...$arguments): bool
     {
         if (!$this->policies) {
             throw new PolicyNotFoundException($action);
@@ -65,6 +70,6 @@ class AccessManager implements AccessManagerInterface
             throw new PolicyNotFoundException($action);
         }
 
-        return $this->policies->evaluate($user, $action, $resource);
+        return $this->policies->evaluate($user, $action, ...$arguments);
     }
 }

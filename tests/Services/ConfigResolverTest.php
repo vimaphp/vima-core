@@ -12,10 +12,9 @@ use Vima\Core\Config\UserRoleColumns;
 use Vima\Core\Config\VimaConfig;
 use Vima\Core\Entities\{Permission, Role};
 use Vima\Core\Services\{ConfigResolver, ConfigSerializer};
-use Vima\Core\Exceptions\InvalidConfigException;
 
 beforeEach(function () {
-    /** @var \Tests\ConfigResolverTestCase $this */
+    /** @var \Vima\Core\Tests\ConfigResolverTestCase $this */
     $this->permissions = [
         Permission::define('users.manage', 'Manage users'),
         Permission::define('users.view', 'View users'),
@@ -62,7 +61,7 @@ beforeEach(function () {
 });
 
 test('valid config resolves permissions and roles', function () {
-    /** @var \Tests\ConfigResolverTestCase $this */
+    /** @var \Vima\Core\Tests\ConfigResolverTestCase $this */
 
     $resolver = new ConfigResolver($this->config);
 
@@ -82,7 +81,7 @@ test('valid config resolves permissions and roles', function () {
 
 
 test('serializer outputs valid array and json', function () {
-    /** @var \Tests\ConfigResolverTestCase $this */
+    /** @var \Vima\Core\Tests\ConfigResolverTestCase $this */
 
     $resolver = new ConfigResolver($this->config);
     $serializer = new ConfigSerializer();

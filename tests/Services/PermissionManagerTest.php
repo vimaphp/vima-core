@@ -6,14 +6,14 @@ use Vima\Core\Services\PermissionManager;
 use Vima\Core\Storage\InMemory\InMemoryPermissionRepository;
 
 beforeEach(function () {
-    /** @var \Tests\ManagerTestCase $this */
+    /** @var \Vima\Core\Tests\ManagerTestCase $this */
 
     $this->permissionRepo = new InMemoryPermissionRepository();
     $this->permissionManager = new PermissionManager($this->permissionRepo);
 });
 
 it('creates a permission', function () {
-    /** @var \Tests\ManagerTestCase $this */
+    /** @var \Vima\Core\Tests\ManagerTestCase $this */
 
     $perm = $this->permissionManager->create('posts.delete');
 
@@ -22,7 +22,7 @@ it('creates a permission', function () {
 });
 
 it('compares permissions equality by name', function () {
-    /** @var \Tests\ManagerTestCase $this */
+    /** @var \Vima\Core\Tests\ManagerTestCase $this */
 
     $a = $this->permissionManager->create('posts.edit');
     $b = $this->permissionManager->create('posts.edit');
@@ -31,7 +31,7 @@ it('compares permissions equality by name', function () {
 });
 
 it('throws exception if permission not found', function () {
-    /** @var \Tests\ManagerTestCase $this */
+    /** @var \Vima\Core\Tests\ManagerTestCase $this */
 
     expect($this->permissionManager->find("posts.create"));
 })->throws(PermissionNotFoundException::class);

@@ -1,5 +1,5 @@
 <?php
-namespace Tests;
+namespace Vima\Core\Tests;
 
 final class AccessFlowTestCase extends TestCase
 {
@@ -29,19 +29,19 @@ final class AccessFlowTestCase extends TestCase
 
     /**
      * Summary of bob
-     * @var \Vima\Core\Entities\User
+     * @var \Vima\Core\Tests\Fixtures\User
      */
     public $bob;
 
     /**
      * Summary of alice
-     * @var \Vima\Core\Entities\User
+     * @var  \Vima\Core\Tests\Fixtures\User
      */
     public $alice;
 
     /**
      * Summary of carol
-     * @var \Vima\Core\Entities\User
+     * @var  \Vima\Core\Tests\Fixtures\User
      */
     public $carol;
 

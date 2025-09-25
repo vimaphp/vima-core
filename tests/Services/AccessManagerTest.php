@@ -2,21 +2,22 @@
 
 use Vima\Core\Exceptions\PolicyNotFoundException;
 use Vima\Core\Services\AccessManager;
-use Vima\Core\Entities\{User, Role, Permission};
+use Vima\Core\Entities\{Role, Permission};
 use Vima\Core\Exceptions\AccessDeniedException;
 use Vima\Core\Services\PolicyRegistry;
 use Vima\Core\Storage\InMemory\InMemoryPermissionRepository;
 use Vima\Core\Storage\InMemory\InMemoryRoleRepository;
+use Vima\Core\Tests\Fixtures\User;
 
 beforeEach(function () {
-    /** @var \Tests\ManagerTestCase $this */
+    /** @var \Vima\Core\Tests\ManagerTestCase $this */
     $this->roleRepo = new InMemoryRoleRepository();
     $this->permissionRepo = new InMemoryPermissionRepository();
     $this->accessManager = new AccessManager($this->roleRepo, $this->permissionRepo);
 });
 
 it('returns true if user has permission', function () {
-    /** @var \Tests\ManagerTestCase $this */
+    /** @var \Vima\Core\Tests\ManagerTestCase $this */
 
     $role = new Role('editor');
     $role->addPermission(new Permission('posts.create'));
@@ -28,21 +29,21 @@ it('returns true if user has permission', function () {
 });
 
 it('returns false if user lacks permission', function () {
-    /** @var \Tests\ManagerTestCase $this */
+    /** @var \Vima\Core\Tests\ManagerTestCase $this */
 
     $user = new User(2);
     expect($this->accessManager->userHasPermission($user, 'posts.delete'))->toBeFalse();
 });
 
 it('throws AccessDeniedException when unauthorized', function () {
-    /** @var \Tests\ManagerTestCase $this */
+    /** @var \Vima\Core\Tests\ManagerTestCase $this */
 
     $user = new User(3);
     $this->accessManager->authorize($user, 'users.delete');
 })->throws(AccessDeniedException::class);
 
 it('passes authorization if user has permission', function () {
-    /** @var \Tests\ManagerTestCase $this */
+    /** @var \Vima\Core\Tests\ManagerTestCase $this */
 
     $role = new Role('admin');
     $role->addPermission(new Permission('users.delete'));
@@ -55,7 +56,7 @@ it('passes authorization if user has permission', function () {
 });
 
 it('throws exception for policy evaluation when no policy is registered', function () {
-    /** @var \Tests\ManagerTestCase $this */
+    /** @var \Vima\Core\Tests\ManagerTestCase $this */
 
     $user = new User(5);
     expect($this->accessManager
@@ -66,7 +67,7 @@ it('throws exception for policy evaluation when no policy is registered', functi
 
 it('delegates policy evaluation to registry', function () {
     $registry = PolicyRegistry::define([
-        'posts.update' => fn(User $u, $post) => $u->getId() === $post->ownerId,
+        'posts.update' => fn(User $u, $post) => $u->vimaGetId() === $post->ownerId,
     ]);
 
     $manager = new AccessManager(

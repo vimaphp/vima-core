@@ -1,6 +1,6 @@
 <?php
 
-use Vima\Core\Entities\User;
+use Vima\Core\Tests\Fixtures\User;
 use Vima\Core\Exceptions\PolicyNotFoundException;
 use Vima\Core\Services\AccessManager;
 use Vima\Core\Entities\{Role, Permission};
@@ -11,7 +11,7 @@ use Vima\Core\Storage\InMemory\InMemoryPermissionRepository;
 use Vima\Core\Storage\InMemory\InMemoryRoleRepository;
 
 beforeEach(function () {
-    /** @var \Tests\AccessFlowTestCase $this */
+    /** @var \Vima\Core\Tests\AccessFlowTestCase $this */
 
     // Setup roles and permissions
     $adminRole = Role::define('admin', [
@@ -43,7 +43,7 @@ beforeEach(function () {
     $this->policyRegistry = new PolicyRegistry();
     $this->policyRegistry->register('posts.update', function (UserInterface $user, $post) {
         // Editors and Admins can update any post
-        foreach ($user->getRoles() as $role) {
+        foreach ($user->vimaGetRoles() as $role) {
             if (in_array($role->getName(), ['editor', 'admin'])) {
                 return true;
             }
@@ -83,21 +83,21 @@ beforeEach(function () {
 });
 
 test('admins can update posts', function () {
-    /** @var \Tests\AccessFlowTestCase $this */
+    /** @var \Vima\Core\Tests\AccessFlowTestCase $this */
 
     expect($this->manager->userHasPermission($this->alice, 'posts.update'))->toBeTrue();
     expect($this->manager->evaluatePolicy($this->alice, 'posts.update', $this->post))->toBeTrue();
 });
 
 test('editors can update posts', function () {
-    /** @var \Tests\AccessFlowTestCase $this */
+    /** @var \Vima\Core\Tests\AccessFlowTestCase $this */
 
     expect($this->manager->userHasPermission($this->bob, 'posts.update'))->toBeTrue();
     expect($this->manager->evaluatePolicy($this->bob, 'posts.update', $this->post))->toBeTrue();
 });
 
 test('viewers cannot update posts, even if owner', function () {
-    /** @var \Tests\AccessFlowTestCase $this */
+    /** @var \Vima\Core\Tests\AccessFlowTestCase $this */
 
     expect($this->manager->userHasPermission($this->carol, 'posts.update'))->toBeFalse();
     expect($this->manager->evaluatePolicy($this->carol, 'posts.update', $this->post))->toBeFalse();
@@ -106,25 +106,25 @@ test('viewers cannot update posts, even if owner', function () {
 
 
 test('admins can update posts using can', function () {
-    /** @var \Tests\AccessFlowTestCase $this */
+    /** @var \Vima\Core\Tests\AccessFlowTestCase $this */
 
     expect($this->manager->can($this->alice, 'posts.update', $this->post))->toBeTrue();
 });
 
 test('editors can update posts using can', function () {
-    /** @var \Tests\AccessFlowTestCase $this */
+    /** @var \Vima\Core\Tests\AccessFlowTestCase $this */
 
     expect($this->manager->can($this->bob, 'posts.update', $this->post))->toBeTrue();
 });
 
 test('viewers cannot update posts using can', function () {
-    /** @var \Tests\AccessFlowTestCase $this */
+    /** @var \Vima\Core\Tests\AccessFlowTestCase $this */
 
     expect($this->manager->can($this->carol, 'posts.update', $this->post))->toBeFalse();
 });
 
 test('viewers can view posts using can', function () {
-    /** @var \Tests\AccessFlowTestCase $this */
+    /** @var \Vima\Core\Tests\AccessFlowTestCase $this */
 
     expect($this->manager->can($this->carol, 'posts.view'))->toBeTrue();
     expect($this->manager->can($this->bob, 'posts.view'))->toBeTrue();
@@ -132,7 +132,7 @@ test('viewers can view posts using can', function () {
 });
 
 test('throws exception when policy not defined but resource is provided', function () {
-    /** @var \Tests\AccessFlowTestCase $this */
+    /** @var \Vima\Core\Tests\AccessFlowTestCase $this */
 
     $user = $this->bob; // editor
     $fakeResource = (object) ['id' => 99];
@@ -141,7 +141,7 @@ test('throws exception when policy not defined but resource is provided', functi
 });
 
 test('returns false when user lacks permission even if policy exists', function () {
-    /** @var \Tests\AccessFlowTestCase $this */
+    /** @var \Vima\Core\Tests\AccessFlowTestCase $this */
 
     expect($this->manager->can($this->carol, 'posts.update', $this->post))->toBeFalse();
 });

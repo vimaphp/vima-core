@@ -2,16 +2,18 @@
 
 namespace Vima\Core\Exceptions;
 
-use Vima\Core\Contracts\UserInterface;
+use Vima\Core\Config\VimaConfig;
+use Vima\Core\Services\UserResolver;
 
 class AccessDeniedException extends VimaException
 {
-    public function __construct(UserInterface $user, string $action, ?string $resource = null)
+    public function __construct(object $user, string $action, ?VimaConfig $config = null)
     {
-        $msg = "Access denied for user [{$user->getId()}] on action '{$action}'";
-        if ($resource) {
-            $msg .= " against resource '{$resource}'";
-        }
+        $resolver = new UserResolver($config);
+
+        $id = $resolver->resolveId($user);
+
+        $msg = "Access denied for user [{$id}] on action '{$action}'";
 
         parent::__construct($msg);
     }

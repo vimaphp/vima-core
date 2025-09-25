@@ -1,7 +1,7 @@
 <?php
 
 
-namespace Tests;
+namespace Vima\Core\Tests;
 
 class TestCase extends \PHPUnit\Framework\TestCase
 {

@@ -1,12 +1,13 @@
 <?php
 
-use Vima\Core\Entities\{User, Role, Permission};
+use Vima\Core\Entities\{Role, Permission};
 use Vima\Core\Exceptions\UserNotFoundException;
 use Vima\Core\Services\UserManager;
 use Vima\Core\Storage\InMemory\InMemoryUserRepository;
+use Vima\Core\Tests\Fixtures\User;
 
 beforeEach(function () {
-    /** @var \Tests\ManagerTestCase $this */
+    /** @var \Vima\Core\Tests\ManagerTestCase $this */
 
     $this->userRepo = new InMemoryUserRepository();
 
@@ -19,15 +20,15 @@ beforeEach(function () {
 });
 
 it('creates a user with id', function () {
-    /** @var \Tests\ManagerTestCase $this */
+    /** @var \Vima\Core\Tests\ManagerTestCase $this */
 
     $user = $this->userManager->find(101);
     expect($user)->toBeInstanceOf(User::class)
-        ->and($user->getId())->toBe(101);
+        ->and($user->vimaGetId())->toBe(101);
 });
 
 it('assigns roles to user', function () {
-    /** @var \Tests\ManagerTestCase $this */
+    /** @var \Vima\Core\Tests\ManagerTestCase $this */
     /** @var UserManager $this->userManager */
 
     /** @var User */
@@ -48,7 +49,7 @@ it('assigns roles to user', function () {
 
 
 it('throws exception if user not found', function () {
-    /** @var \Tests\ManagerTestCase $this */
+    /** @var \Vima\Core\Tests\ManagerTestCase $this */
 
     expect($this->userManager->find(20));
 })->throws(UserNotFoundException::class);

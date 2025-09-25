@@ -5,6 +5,6 @@ namespace Vima\Core\Contracts;
 
 interface UserInterface
 {
-    public function getId(): string|int;
-    public function getRoles(): array; // role names or IDs
+    public function vimaGetId(): string|int;
+    public function vimaGetRoles(): array; // role names or IDs
 }

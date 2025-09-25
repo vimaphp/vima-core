@@ -1,11 +1,11 @@
 <?php
 
 use Vima\Core\Services\PolicyRegistry;
-use Vima\Core\Entities\User;
+use Vima\Core\Tests\Fixtures\User;
 
 it('registers and evaluates a policy successfully', function () {
     $registry = new PolicyRegistry();
-    $registry->register('posts.update', fn(User $u, $post) => $u->getId() === $post->ownerId);
+    $registry->register('posts.update', fn(User $u, $post) => $u->vimaGetId() === $post->ownerId);
 
     $user = new User(1);
     $post = (object) ['ownerId' => 1];
@@ -15,7 +15,7 @@ it('registers and evaluates a policy successfully', function () {
 
 it('returns false if user does not satisfy policy', function () {
     $registry = new PolicyRegistry();
-    $registry->register('posts.update', fn(User $u, $post) => $u->getId() === $post->ownerId);
+    $registry->register('posts.update', fn(User $u, $post) => $u->vimaGetId() === $post->ownerId);
 
     $user = new User(2);
     $post = (object) ['ownerId' => 1];
@@ -34,7 +34,7 @@ it('returns false if policy is not found', function () {
 
 it('can define policies statically with one rule', function () {
     $registry = PolicyRegistry::define([
-        'posts.update' => fn(User $u, $post) => $u->getId() === $post->ownerId,
+        'posts.update' => fn(User $u, $post) => $u->vimaGetId() === $post->ownerId,
     ]);
 
     $user = new User(1);
@@ -45,7 +45,7 @@ it('can define policies statically with one rule', function () {
 
 it('can define multiple policies statically', function () {
     $registry = PolicyRegistry::define([
-        'posts.update' => fn(User $u, $post) => $u->getId() === $post->ownerId,
+        'posts.update' => fn(User $u, $post) => $u->vimaGetId() === $post->ownerId,
         'posts.delete' => fn(User $u, $post) => $post->ownerId === 1, // simple check
     ]);
 

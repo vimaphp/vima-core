@@ -1,7 +1,5 @@
 <?php
-namespace Tests;
-
-use Tests\TestCase;
+namespace Vima\Core\Tests;
 
 final class ManagerTestCase extends TestCase
 {

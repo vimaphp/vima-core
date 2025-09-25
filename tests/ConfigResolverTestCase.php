@@ -1,5 +1,5 @@
 <?php
-namespace Tests;
+namespace Vima\Core\Tests;
 
 use Vima\Core\Config\VimaConfig;
 
