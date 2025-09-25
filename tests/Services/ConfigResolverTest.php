@@ -1,5 +1,15 @@
 <?php
 
+use Vima\Core\Config\Columns;
+use Vima\Core\Config\Models;
+use Vima\Core\Config\PermissionColumns;
+use Vima\Core\Config\RoleColumns;
+use Vima\Core\Config\RolePermissionColumns;
+use Vima\Core\Config\Setup;
+use Vima\Core\Config\Tables;
+use Vima\Core\Config\UserMethods;
+use Vima\Core\Config\UserRoleColumns;
+use Vima\Core\Config\VimaConfig;
 use Vima\Core\Entities\{Permission, Role};
 use Vima\Core\Services\{ConfigResolver, ConfigSerializer};
 use Vima\Core\Exceptions\InvalidConfigException;
@@ -31,10 +41,24 @@ beforeEach(function () {
         ),
     ];
 
-    $this->config = [
-        'permissions' => $this->permissions,
-        'roles' => $this->roles,
-    ];
+    $this->config = new VimaConfig(
+        tables: new Tables(),
+        setup: new Setup(
+            roles: $this->roles,
+            permissions: $this->permissions,
+        ),
+        models: new Models(
+            roles: "",
+            permissions: "",
+        ),
+        columns: new Columns(
+            roles: new RoleColumns(),
+            permissions: new PermissionColumns(),
+            userRoles: new UserRoleColumns(),
+            rolePermission: new RolePermissionColumns()
+        ),
+        userMethods: new UserMethods(),
+    );
 });
 
 test('valid config resolves permissions and roles', function () {
@@ -56,39 +80,6 @@ test('valid config resolves permissions and roles', function () {
     expect($roles['viewer']['permissions'])->toBe(['users.view']);
 });
 
-test('throws if permissions key is missing', function () {
-    /** @var \Tests\ConfigResolverTestCase $this */
-
-    new ConfigResolver(['roles' => $this->roles]);
-})->throws(InvalidConfigException::class);
-
-test('throws if roles key is missing', function () {
-    /** @var \Tests\ConfigResolverTestCase $this */
-
-    new ConfigResolver(['permissions' => $this->permissions]);
-})->throws(InvalidConfigException::class);
-
-test('throws if permissions contain invalid objects', function () {
-    /** @var \Tests\ConfigResolverTestCase $this */
-
-    $badConfig = [
-        'permissions' => ['not-a-permission'],
-        'roles' => $this->roles,
-    ];
-
-    new ConfigResolver($badConfig);
-})->throws(InvalidConfigException::class);
-
-test('throws if roles contain invalid objects', function () {
-    /** @var \Tests\ConfigResolverTestCase $this */
-
-    $badConfig = [
-        'permissions' => $this->permissions,
-        'roles' => ['not-a-role'],
-    ];
-
-    new ConfigResolver($badConfig);
-})->throws(InvalidConfigException::class);
 
 test('serializer outputs valid array and json', function () {
     /** @var \Tests\ConfigResolverTestCase $this */

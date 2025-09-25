@@ -2,6 +2,7 @@
 
 namespace Vima\Core\Services;
 
+use Vima\Core\Config\VimaConfig;
 use Vima\Core\Contracts\RoleRepositoryInterface;
 use Vima\Core\Contracts\PermissionRepositoryInterface;
 use Vima\Core\Entities\Role;
@@ -19,16 +20,15 @@ class SyncService
     /**
      * Syncs configuration array into repositories.
      *
-     * @param array $config The raw config array (permissions & roles)
+     * @param VimaConfig $config The raw config array (permissions & roles)
      */
-    public function sync(array $config): void
+    public function sync(VimaConfig $config): void
     {
         // Validate & normalize using ConfigResolver
         $resolver = new ConfigResolver($config);
 
         // Sync permissions first
-        foreach ($config['permissions'] as $permission) {
-            // $permission is already a Permission instance (validated by resolver)
+        foreach ($config->setup->permissions as $permission) {
             $existing = $this->permissions->findByName($permission->getName());
             if (!$existing) {
                 $this->permissions->save($permission);

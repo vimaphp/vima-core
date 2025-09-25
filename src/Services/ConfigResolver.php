@@ -2,40 +2,39 @@
 
 namespace Vima\Core\Services;
 
+use Vima\Core\Config\VimaConfig;
 use Vima\Core\Entities\Permission;
 use Vima\Core\Entities\Role;
 use Vima\Core\Exceptions\InvalidConfigException;
 
 class ConfigResolver
 {
-    protected array $config;
 
-    public function __construct(array $config)
+    public function __construct(protected VimaConfig $config)
     {
         $this->validateConfig($config);
-        $this->config = $config;
     }
 
     /**
      * Validate structure of provided config array.
      */
-    protected function validateConfig(array $config): void
+    protected function validateConfig(VimaConfig $config): void
     {
-        if (!isset($config['permissions']) || !is_array($config['permissions'])) {
+        if (!isset($config->setup->permissions) || !is_array($config->setup->permissions)) {
             throw new InvalidConfigException("Config must have a 'permissions' array.");
         }
 
-        if (!isset($config['roles']) || !is_array($config['roles'])) {
+        if (!isset($config->setup->roles) || !is_array($config->setup->roles)) {
             throw new InvalidConfigException("Config must have a 'roles' array.");
         }
 
-        foreach ($config['permissions'] as $perm) {
+        foreach ($config->setup->permissions as $perm) {
             if (!$perm instanceof Permission) {
                 throw new InvalidConfigException("Each item in 'permissions' must be an instance of Permission.");
             }
         }
 
-        foreach ($config['roles'] as $role) {
+        foreach ($config->setup->roles as $role) {
             if (!$role instanceof Role) {
                 throw new InvalidConfigException("Each item in 'roles' must be an instance of Role.");
             }
@@ -47,7 +46,7 @@ class ConfigResolver
      */
     public function getPermissions(): array
     {
-        return array_map(fn(Permission $p) => $p->getName(), $this->config['permissions']);
+        return array_map(fn(Permission $p) => $p->getName(), $this->config->setup->permissions);
     }
 
     /**
@@ -59,7 +58,7 @@ class ConfigResolver
     {
         $roles = [];
 
-        foreach ($this->config['roles'] as $role) {
+        foreach ($this->config->setup->roles as $role) {
             $roles[$role->getName()] = [
                 'description' => $role->getDescription(),
                 'permissions' => $this->resolveRolePermissions($role->getPermissions()),

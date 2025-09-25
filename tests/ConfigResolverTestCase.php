@@ -1,6 +1,8 @@
 <?php
 namespace Tests;
 
+use Vima\Core\Config\VimaConfig;
+
 final class ConfigResolverTestCase extends TestCase
 {
     /**
@@ -19,5 +21,5 @@ final class ConfigResolverTestCase extends TestCase
      * Summary of config
      * @var array
      */
-    public $config;
+    public VimaConfig $config;
 }
