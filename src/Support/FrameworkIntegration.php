@@ -17,7 +17,7 @@ class FrameworkIntegration
     /**
      * Tables required by Vima.
      *
-     * @return array<string, string> [alias => default table name]
+     * @return Tables
      */
     public static function requiredTables(): Tables
     {
@@ -40,7 +40,7 @@ class FrameworkIntegration
     /**
      * Repositories needed for full integration.
      *
-     * @return array<string, string>
+     * @return object<string, class-string>
      */
     public static function repositoryContracts(): object
     {
