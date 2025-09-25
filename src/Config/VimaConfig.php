@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Vima\Core\Config;
 
-final class VimaConfig
+class VimaConfig
 {
     public function __construct(
         public Tables $tables,
