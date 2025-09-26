@@ -76,35 +76,4 @@ final class UserResolver
 
         throw new UserResolutionException('Could not resolve roles for user.');
     }
-
-    /**
-     * Resolve user permissions.
-     *
-     * @param object $user
-     * @return Permission[]
-     * @throws UserResolutionException
-     */
-    public function resolvePermissions(object $user): array
-    {
-        // 1. Check convention: vimaGetPermissions
-        if (method_exists($user, 'vimaGetPermissions')) {
-            return $user->vimaGetPermissions();
-        }
-
-        // 2. Check config mapping
-        $mappedMethod = $this->config->userMethods->permissions ?? null;
-        if ($mappedMethod && method_exists($user, $mappedMethod)) {
-            return $user->{$mappedMethod}();
-        }
-
-        // 3. Check composition identity
-        if (method_exists($user, 'toVimaIdentity')) {
-            $identity = $user->toVimaIdentity();
-            if (isset($identity->permissions)) {
-                return $identity->permissions;
-            }
-        }
-
-        throw new UserResolutionException('Could not resolve permissions for user.');
-    }
 }

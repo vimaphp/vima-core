@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace Vima\Core\Entities;
 
-final class VimaIdentity
+class VimaIdentity
 {
     public function __construct(
+        public int|string $id,
         public array $roles,
-        public array $permissions,
     ) {
     }
 }

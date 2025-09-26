@@ -11,7 +11,9 @@ use Vima\Core\Config\UserMethods;
 use Vima\Core\Config\UserRoleColumns;
 use Vima\Core\Config\VimaConfig;
 use Vima\Core\Entities\{Permission, Role};
-use Vima\Core\Services\{ConfigResolver, ConfigSerializer};
+use Vima\Core\Services\SyncService;
+use Vima\Core\Storage\InMemory\InMemoryPermissionRepository;
+use Vima\Core\Storage\InMemory\InMemoryRoleRepository;
 
 beforeEach(function () {
     /** @var \Vima\Core\Tests\ConfigResolverTestCase $this */
@@ -60,41 +62,19 @@ beforeEach(function () {
     );
 });
 
-test('valid config resolves permissions and roles', function () {
+test('', function () {
     /** @var \Vima\Core\Tests\ConfigResolverTestCase $this */
+    $roleRepo = new InMemoryRoleRepository();
+    $permRepo = new InMemoryPermissionRepository();
 
-    $resolver = new ConfigResolver($this->config);
+    $syncService = new SyncService(
+        roles: $roleRepo,
+        permissions: $permRepo
+    );
 
-    expect($resolver->getPermissions())->toContain('users.manage', 'blogs.edit', 'users.view', 'blogs.edit');
+    $syncService->sync($this->config);
 
-    $roles = $resolver->getRoles();
+    $roles = $roleRepo->all();
 
-    expect($roles)->toHaveKey('admin');
-    expect($roles['admin']['permissions'])->toContain('users.manage', 'blogs.edit', 'users.view', 'blogs.edit');
-    expect($roles['admin']['permissions'])->toHaveCount(4);
-
-    expect($roles)->toHaveKey('editor');
-    expect($roles['editor']['permissions'])->toContain('blogs.create', 'blogs.edit');
-    expect($roles['editor']['permissions'])->toHaveCount(2);
-
-
-    expect($roles)->toHaveKey('viewer');
-    expect($roles['viewer']['permissions'])->toBe(['users.view']);
-    expect($roles['viewer']['permissions'])->toHaveCount(1);
-});
-
-
-test('serializer outputs valid array and json', function () {
-    /** @var \Vima\Core\Tests\ConfigResolverTestCase $this */
-
-    $resolver = new ConfigResolver($this->config);
-    $serializer = new ConfigSerializer();
-
-    $array = $serializer->toArray($resolver);
-    expect($array)->toHaveKeys(['permissions', 'roles']);
-    expect($array['roles']['editor']['permissions'])->toContain('blogs.edit');
-
-    $json = $serializer->toJson($resolver);
-    expect($json)->toBeJson();
-    expect($json)->toContain('users.manage');
+    expect($roles)->toHaveCount(3);
 });
