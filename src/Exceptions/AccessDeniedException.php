@@ -7,11 +7,17 @@ use Vima\Core\Services\UserResolver;
 
 class AccessDeniedException extends VimaException
 {
-    public function __construct(object $user, string $action, ?VimaConfig $config = null)
+    public function __construct(object|string $userOrAction, string $action, ?VimaConfig $config = null)
     {
-        $resolver = new UserResolver($config);
+        if (is_string($userOrAction)) {
+            $action = $userOrAction;
+            $user = $config->userResolver ? ($config->userResolver)() : null;
+        } else {
+            $action = (string) $action;
+        }
 
-        $id = $resolver->resolveId($user);
+        $resolver = new UserResolver($config);
+        $id = $user ? $resolver->resolveId($user) : "Unknown User";
 
         $msg = "Access denied for user [{$id}] on action '{$action}'";
 
