@@ -1,19 +1,11 @@
 <?php
 
-use Vima\Core\Config\Columns;
-use Vima\Core\Config\Models;
-use Vima\Core\Config\PermissionColumns;
-use Vima\Core\Config\RoleColumns;
-use Vima\Core\Config\RolePermissionColumns;
 use Vima\Core\Config\Setup;
-use Vima\Core\Config\Tables;
-use Vima\Core\Config\UserMethods;
-use Vima\Core\Config\UserRoleColumns;
 use Vima\Core\Config\VimaConfig;
 use Vima\Core\Entities\{Permission, Role};
 use Vima\Core\Services\SyncService;
-use Vima\Core\Storage\InMemory\InMemoryPermissionRepository;
-use Vima\Core\Storage\InMemory\InMemoryRoleRepository;
+use Vima\Core\Tests\Fixtures\Storage\InMemoryPermissionRepository;
+use Vima\Core\Tests\Fixtures\Storage\InMemoryRoleRepository;
 
 beforeEach(function () {
     /** @var \Vima\Core\Tests\ConfigResolverTestCase $this */
@@ -43,22 +35,10 @@ beforeEach(function () {
     ];
 
     $this->config = new VimaConfig(
-        tables: new Tables(),
         setup: new Setup(
             roles: $this->roles,
             permissions: $this->permissions,
         ),
-        models: new Models(
-            roles: "",
-            permissions: "",
-        ),
-        columns: new Columns(
-            roles: new RoleColumns(),
-            permissions: new PermissionColumns(),
-            userRoles: new UserRoleColumns(),
-            rolePermission: new RolePermissionColumns()
-        ),
-        userMethods: new UserMethods(),
     );
 });
 

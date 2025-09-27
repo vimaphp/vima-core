@@ -46,7 +46,7 @@ class ConfigResolver
      */
     public function getPermissions(): array
     {
-        return array_map(fn(Permission $p) => $p->getName(), $this->config->setup->permissions);
+        return array_map(fn(Permission $p) => $p->name, $this->config->setup->permissions);
     }
 
     /**
@@ -59,9 +59,9 @@ class ConfigResolver
         $roles = [];
 
         foreach ($this->config->setup->roles as $role) {
-            $roles[$role->getName()] = [
-                'description' => $role->getDescription(),
-                'permissions' => $this->resolveRolePermissions($role->getPermissions()),
+            $roles[$role->name] = [
+                'description' => $role->description,
+                'permissions' => $this->resolveRolePermissions($role->permissions),
             ];
         }
 
@@ -80,7 +80,7 @@ class ConfigResolver
         $resolved = [];
 
         foreach ($permissions as $perm) {
-            $name = $perm->getName();
+            $name = $perm->name;
 
             // Global wildcard
             if ($name === '*') {

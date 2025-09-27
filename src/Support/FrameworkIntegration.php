@@ -3,11 +3,8 @@
 namespace Vima\Core\Support;
 
 use Vima\Core\Config\Columns;
-use Vima\Core\Config\PermissionColumns;
-use Vima\Core\Config\RoleColumns;
-use Vima\Core\Config\RolePermissionColumns;
 use Vima\Core\Config\Tables;
-use Vima\Core\Config\UserRoleColumns;
+use Vima\Core\Config\VimaConfig;
 use Vima\Core\Contracts\RoleRepositoryInterface;
 use Vima\Core\Contracts\PermissionRepositoryInterface;
 use Vima\Core\Services\PolicyRegistry;
@@ -21,7 +18,7 @@ class FrameworkIntegration
      */
     public static function requiredTables(): Tables
     {
-        return new Tables();
+        return (new VimaConfig())->tables;
     }
 
     /**
@@ -29,12 +26,7 @@ class FrameworkIntegration
      */
     public static function requiredColumns(): Columns
     {
-        return new Columns(
-            roles: new RoleColumns(),
-            permissions: new PermissionColumns(),
-            userRoles: new UserRoleColumns(),
-            rolePermission: new RolePermissionColumns()
-        );
+        return (new VimaConfig())->columns;
     }
 
     /**
@@ -58,7 +50,6 @@ class FrameworkIntegration
         return (object) [
             'vima' => 'Returns AccessManager service instance',
             'can' => 'Check if a user has a given permission',
-            'isRole' => 'Check if a user has a given role',
         ];
     }
 
@@ -67,6 +58,6 @@ class FrameworkIntegration
      */
     public static function policyRegistry(): PolicyRegistry
     {
-        return PolicyRegistry::instance(); // Singleton/shared instance
+        return PolicyRegistry::instance();
     }
 }

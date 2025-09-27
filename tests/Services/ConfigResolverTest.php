@@ -41,22 +41,10 @@ beforeEach(function () {
     ];
 
     $this->config = new VimaConfig(
-        tables: new Tables(),
         setup: new Setup(
             roles: $this->roles,
             permissions: $this->permissions,
         ),
-        models: new Models(
-            roles: "",
-            permissions: "",
-        ),
-        columns: new Columns(
-            roles: new RoleColumns(),
-            permissions: new PermissionColumns(),
-            userRoles: new UserRoleColumns(),
-            rolePermission: new RolePermissionColumns()
-        ),
-        userMethods: new UserMethods(),
     );
 });
 

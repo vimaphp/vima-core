@@ -11,13 +11,13 @@ final class AccessFlowTestCase extends TestCase
 
     /**
      * Summary of roleRepo
-     * @var \Vima\Core\Storage\InMemory\InMemoryRoleRepository
+     * @var \Vima\Core\Contracts\RoleRepositoryInterface
      */
     public $roleRepo;
 
     /**
      * Summary of permissionRepo
-     * @var \Vima\Core\Storage\InMemory\InMemoryPermissionRepository
+     * @var \Vima\Core\Contracts\PermissionRepositoryInterface
      */
     public $permissionRepo;
 

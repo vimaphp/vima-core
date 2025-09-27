@@ -14,11 +14,8 @@ class VimaConfig
             roles: new RoleColumns(),
             permissions: new PermissionColumns(),
             userRoles: new UserRoleColumns(),
-            rolePermission: new RolePermissionColumns()
-        ),
-        public Models $models = new Models(
-            roles: "",
-            permissions: ""
+            rolePermissions: new RolePermissionColumns(),
+            userPermissions: new UserPermissionColumns()
         ),
         public Setup $setup = new Setup(),
         public UserMethods $userMethods = new UserMethods(),

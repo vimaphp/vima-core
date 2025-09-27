@@ -3,7 +3,7 @@
 use Vima\Core\Entities\{Role, Permission};
 use Vima\Core\Exceptions\UserNotFoundException;
 use Vima\Core\Services\UserManager;
-use Vima\Core\Storage\InMemory\InMemoryUserRepository;
+use Vima\Core\Tests\Fixtures\Storage\InMemoryUserRepository;
 use Vima\Core\Tests\Fixtures\User;
 
 beforeEach(function () {

@@ -14,19 +14,19 @@ it('can add and check permissions', function () {
 
 it('returns role name correctly', function () {
     $role = new Role('editor');
-    expect($role->getName())->toBe('editor');
+    expect($role->name)->toBe('editor');
 });
 
 it('returns permissions list', function () {
     $role = new Role('viewer');
     $role->addPermission(new Permission('posts.view'));
 
-    expect($role->getPermissions())
+    expect($role->permissions)
         ->toBeArray()
         ->sequence(
             function ($perm) {
                 /** @var Permission $perm->value */
-                expect($perm->value->getName())->toBe('posts.view');
+                expect($perm->value->name)->toBe('posts.view');
             }
         );
 });
@@ -47,7 +47,7 @@ it('removes a permission', function () {
 it('defines a role with string permissions', function () {
     $role = Role::define('editor', ['posts.create', 'posts.edit']);
 
-    expect($role->getName())->toBe('editor')
+    expect($role->name)->toBe('editor')
         ->and($role->hasPermission('posts.create'))->toBeTrue()
         ->and($role->hasPermission('posts.edit'))->toBeTrue();
 });
@@ -65,6 +65,6 @@ it('defines a role with Permission objects', function () {
 it('defines a role with no permissions', function () {
     $role = Role::define('guest');
 
-    expect($role->getName())->toBe('guest')
-        ->and($role->getPermissions())->toBeArray()->toHaveCount(0);
+    expect($role->name)->toBe('guest')
+        ->and($role->permissions)->toBeArray()->toHaveCount(0);
 });

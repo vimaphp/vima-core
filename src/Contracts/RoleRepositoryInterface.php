@@ -8,11 +8,12 @@ use Vima\Core\Entities\Role;
 interface RoleRepositoryInterface
 {
     public function findByName(string $name): ?Role;
+    public function findById(int|string $id): ?Role;
 
     /** @return Role[] */
     public function all(): array;
 
-    public function save(Role $role): void;
+    public function save(Role $role): Role;
 
     public function delete(Role $role): void;
 }

@@ -8,8 +8,6 @@ final class UserMethods
 {
     public function __construct(
         public ?string $id = null,
-        public ?string $roles = null,
-        public ?string $permissions = null,
     ) {
     }
 }

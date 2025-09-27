@@ -1,45 +1,31 @@
 <?php
+declare(strict_types=1);
 
 namespace Vima\Core\Entities;
 
 class Role
 {
     public function __construct(
-        private string $name,
+        public string $name,
         /** @var Permission[] */
-        private array $permissions = [],
-        private ?string $description = null,
+        public array $permissions = [],
+        public ?string $description = null,
+        public int|string|null $id = null,
     ) {
     }
 
     public static function define(string $name, array $permissions = [], ?string $description = null): self
     {
-        $role = new self($name);
+        $role = new self(name: $name);
 
         foreach ($permissions as $perm) {
-            $permission = $perm instanceof Permission ? $perm : new Permission($perm);
+            $permission = $perm instanceof Permission ? $perm : new Permission(name: $perm);
             $role->addPermission($permission);
         }
 
         $role->description = $description;
 
         return $role;
-    }
-
-    public function getName(): string
-    {
-        return $this->name;
-    }
-
-    public function getDescription(): ?string
-    {
-        return $this->description;
-    }
-
-    /** @return Permission[] */
-    public function getPermissions(): array
-    {
-        return $this->permissions;
     }
 
     public function addPermission(Permission $permission): self
@@ -66,7 +52,7 @@ class Role
         $perms = [];
 
         foreach ($this->permissions as $p) {
-            $perms[] = $p->getName();
+            $perms[] = $p->name;
         }
 
         foreach ($permissions as $p) {

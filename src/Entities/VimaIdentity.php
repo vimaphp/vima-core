@@ -11,4 +11,9 @@ class VimaIdentity
         public array $roles,
     ) {
     }
+
+    public static function define(int|string $id, array $roles): VimaIdentity
+    {
+        return new self(id: $id, roles: $roles);
+    }
 }

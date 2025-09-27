@@ -1,9 +1,17 @@
 <?php
 
+use Vima\Core\Config\VimaConfig;
+use Vima\Core\DependencyContainer;
 use Vima\Core\Entities\{Role, Permission};
 use Vima\Core\Exceptions\RoleNotFoundException;
+use Vima\Core\Services\PolicyRegistry;
 use Vima\Core\Services\RoleManager;
-use Vima\Core\Storage\InMemory\InMemoryRoleRepository;
+use Vima\Core\Services\UserResolver;
+use Vima\Core\Tests\Fixtures\Storage\InMemoryPermissionRepository;
+use Vima\Core\Tests\Fixtures\Storage\InMemoryRolePermissionRepository;
+use Vima\Core\Tests\Fixtures\Storage\InMemoryRoleRepository;
+use Vima\Core\Tests\Fixtures\Storage\InMemoryUserPermissionRepository;
+use Vima\Core\Tests\Fixtures\Storage\InMemoryUserRoleRepository;
 
 beforeEach(function () {
     /** @var \Vima\Core\Tests\ManagerTestCase $this */
@@ -15,7 +23,17 @@ beforeEach(function () {
         $this->roleRepo->save($user);
     };
 
-    $this->roleManager = new RoleManager($this->roleRepo);
+    new DependencyContainer(
+        roles: new InMemoryRoleRepository(),
+        permissions: new InMemoryPermissionRepository(),
+        userPermissions: new InMemoryUserPermissionRepository(),
+        userRoles: new InMemoryUserRoleRepository(),
+        rolePermissions: new InMemoryRolePermissionRepository(),
+        userResolver: new UserResolver(new VimaConfig()),
+        policies: new PolicyRegistry(),
+    );
+
+    $this->roleManager = new RoleManager();
 });
 
 it('creates a role with permissions', function () {
@@ -31,7 +49,7 @@ it('creates a role with permissions', function () {
     $this->roleManager->save($role);
  */
     /* Second way to create a role with permissions */
-    $role = new Role('editor', [new Permission('posts.create'), new Permission('posts.edit')]);
+    $role = new Role(name: 'editor', permissions: [new Permission(name: 'posts.create'), new Permission(name: 'posts.edit')]);
 
     $this->roleManager->create($role);
 

@@ -1,6 +1,10 @@
 <?php
 namespace Vima\Core\Tests;
 
+use Vima\Core\Contracts\RolePermissionRepositoryInterface;
+use Vima\Core\Contracts\UserPermissionRepositoryInterface;
+use Vima\Core\Contracts\UserRoleRepositoryInterface;
+
 final class ManagerTestCase extends TestCase
 {
     /**
@@ -43,5 +47,9 @@ final class ManagerTestCase extends TestCase
      */
     public $userRepo;
 
+    public UserPermissionRepositoryInterface $userPermissionRepo;
 
+    public RolePermissionRepositoryInterface $rolePermissionRepo;
+
+    public UserRoleRepositoryInterface $userRoleRepo;
 }

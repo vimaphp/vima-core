@@ -1,15 +1,34 @@
 <?php
 
+use Vima\Core\Config\VimaConfig;
+use Vima\Core\DependencyContainer;
 use Vima\Core\Entities\Permission;
 use Vima\Core\Exceptions\PermissionNotFoundException;
 use Vima\Core\Services\PermissionManager;
-use Vima\Core\Storage\InMemory\InMemoryPermissionRepository;
+use Vima\Core\Services\PolicyRegistry;
+use Vima\Core\Services\UserResolver;
+use Vima\Core\Tests\Fixtures\Storage\InMemoryPermissionRepository;
+use Vima\Core\Tests\Fixtures\Storage\InMemoryRolePermissionRepository;
+use Vima\Core\Tests\Fixtures\Storage\InMemoryRoleRepository;
+use Vima\Core\Tests\Fixtures\Storage\InMemoryUserPermissionRepository;
+use Vima\Core\Tests\Fixtures\Storage\InMemoryUserRoleRepository;
 
 beforeEach(function () {
     /** @var \Vima\Core\Tests\ManagerTestCase $this */
 
     $this->permissionRepo = new InMemoryPermissionRepository();
-    $this->permissionManager = new PermissionManager($this->permissionRepo);
+
+    new DependencyContainer(
+        roles: new InMemoryRoleRepository(),
+        permissions: $this->permissionRepo,
+        userPermissions: new InMemoryUserPermissionRepository(),
+        userRoles: new InMemoryUserRoleRepository(),
+        rolePermissions: new InMemoryRolePermissionRepository(),
+        userResolver: new UserResolver(new VimaConfig()),
+        policies: new PolicyRegistry(),
+    );
+
+    $this->permissionManager = new PermissionManager();
 });
 
 it('creates a permission', function () {
@@ -18,7 +37,7 @@ it('creates a permission', function () {
     $perm = $this->permissionManager->create('posts.delete');
 
     expect($perm)->toBeInstanceOf(Permission::class)
-        ->and($perm->getName())->toBe('posts.delete');
+        ->and($perm->name)->toBe('posts.delete');
 });
 
 it('compares permissions equality by name', function () {
@@ -27,7 +46,7 @@ it('compares permissions equality by name', function () {
     $a = $this->permissionManager->create('posts.edit');
     $b = $this->permissionManager->create('posts.edit');
 
-    expect($a->getName())->toBe($b->getName());
+    expect($a->name)->toBe($b->name);
 });
 
 it('throws exception if permission not found', function () {

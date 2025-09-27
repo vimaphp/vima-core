@@ -1,6 +1,7 @@
 <?php
 
-namespace Vima\Core\Storage\InMemory;
+namespace Vima\Core\Tests\Fixtures\Storage;
+
 
 use Vima\Core\Contracts\UserRepositoryInterface;
 use Vima\Core\Contracts\UserInterface;

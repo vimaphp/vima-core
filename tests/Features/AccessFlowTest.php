@@ -1,82 +1,118 @@
 <?php
 
+use Vima\Core\Config\Setup;
+use Vima\Core\Config\VimaConfig;
+use Vima\Core\DependencyContainer;
+use Vima\Core\Services\SyncService;
+use Vima\Core\Services\UserResolver;
+use Vima\Core\Tests\Fixtures\Storage\InMemoryPermissionRepository;
+use Vima\Core\Tests\Fixtures\Storage\InMemoryRolePermissionRepository;
+use Vima\Core\Tests\Fixtures\Storage\InMemoryRoleRepository;
+use Vima\Core\Tests\Fixtures\Storage\InMemoryUserPermissionRepository;
+use Vima\Core\Tests\Fixtures\Storage\InMemoryUserRoleRepository;
 use Vima\Core\Tests\Fixtures\User;
-use Vima\Core\Exceptions\PolicyNotFoundException;
 use Vima\Core\Services\AccessManager;
 use Vima\Core\Entities\{Role, Permission};
 use Vima\Core\Contracts\UserInterface;
 use Vima\Core\Exceptions\AccessDeniedException;
 use Vima\Core\Services\PolicyRegistry;
-use Vima\Core\Storage\InMemory\InMemoryPermissionRepository;
-use Vima\Core\Storage\InMemory\InMemoryRoleRepository;
 
 beforeEach(function () {
     /** @var \Vima\Core\Tests\AccessFlowTestCase $this */
 
     // Setup roles and permissions
-    $adminRole = Role::define('admin', [
-        Permission::define('posts.create'),
-        Permission::define('posts.update'),
-        Permission::define('posts.delete'),
-        Permission::define('posts.view'),
+    $adminRole = Role::define(name: 'admin', permissions: [
+        Permission::define(name: 'posts.create'),
+        Permission::define(name: 'posts.update'),
+        Permission::define(name: 'posts.delete'),
+        Permission::define(name: 'posts.view'),
     ]);
 
-    $editorRole = Role::define('editor', [
-        Permission::define('posts.create'),
-        Permission::define('posts.update'),
-        Permission::define('posts.view'),
+    $editorRole = Role::define(name: 'editor', permissions: [
+        Permission::define(name: 'posts.create'),
+        Permission::define(name: 'posts.update'),
+        Permission::define(name: 'posts.view'),
     ]);
 
-    $viewerRole = Role::define('viewer', [
-        Permission::define('posts.view'),
+    $viewerRole = Role::define(name: 'viewer', permissions: [
+        Permission::define(name: 'posts.view'),
     ]);
 
     $this->roles = [$adminRole, $editorRole, $viewerRole];
 
     $this->permissions = array_merge(
-        $adminRole->getPermissions(),
-        $editorRole->getPermissions(),
-        $viewerRole->getPermissions()
+        $adminRole->permissions,
+        $editorRole->permissions,
+        $viewerRole->permissions
     );
+
+    $config = new VimaConfig(
+        setup: new Setup(
+            roles: $this->roles,
+            permissions: $this->permissions
+        )
+    );
+
+    $this->roleRepo = new InMemoryRoleRepository();
+    $this->permissionRepo = new InMemoryPermissionRepository();
+    $this->userPermissionRepo = new InMemoryUserPermissionRepository();
+    $this->userRoleRepo = new InMemoryUserRoleRepository();
+    $this->rolePermissionRepo = new InMemoryRolePermissionRepository();
+    $userResolver = new UserResolver(new VimaConfig());
+
 
     // Setup Policy Registry
     $this->policyRegistry = new PolicyRegistry();
     $this->policyRegistry->register('posts.update', function (UserInterface $user, $post) {
         // Editors and Admins can update any post
         foreach ($user->vimaGetRoles() as $role) {
-            if (in_array($role->getName(), ['editor', 'admin'])) {
+            if (in_array($role->name, ['editor', 'admin'])) {
                 return true;
             }
         }
-        return false; // viewers cannot update, even if they own
+        return false;
     });
 
-    $this->roleRepo = new InMemoryRoleRepository();
-    $this->permissionRepo = new InMemoryPermissionRepository();
-
-    foreach ($this->roles as $r) {
-        $this->roleRepo->save($r);
-    }
-
-    foreach ($this->permissions as $p) {
-        $this->permissionRepo->save($p);
-    }
-
-    $this->manager = new AccessManager(
-        $this->roleRepo,
-        $this->permissionRepo,
-        $this->policyRegistry
+    new DependencyContainer(
+        roles: $this->roleRepo,
+        permissions: $this->permissionRepo,
+        userPermissions: new InMemoryUserPermissionRepository(),
+        userRoles: new InMemoryUserRoleRepository(),
+        rolePermissions: new InMemoryRolePermissionRepository(),
+        userResolver: $userResolver,
+        policies: $this->policyRegistry,
     );
+
+    $DC = DependencyContainer::$instance;
+
+    $this->manager = new AccessManager();
+
+
+    // two way to start off here
+    // Both should work well
+
+    // 1. Use the SyncSevice
+    $syncService = new SyncService(
+        roles: $DC->roles,
+        permissions: $DC->permissions
+    );
+
+    $syncService->sync($config);
+
+    // 2. Add the roles using the manager->addRole
+    /* foreach ($this->roles as $role) {
+        $this->manager->addRole($role);
+    } */
 
     // Fake users
     $this->alice = new User(1);
-    $this->alice->addRole($adminRole);
+    $this->manager->grantRole($this->alice, $adminRole);
 
     $this->bob = new User(2);
-    $this->bob->addRole($editorRole);
+    $this->manager->grantRole($this->bob, $editorRole);
 
     $this->carol = new User(3);
-    $this->carol->addRole($viewerRole);
+    $this->manager->grantRole($this->carol, $viewerRole);
 
     // Fake post resource
     $this->post = (object) ['id' => 1, 'owner' => 3];
@@ -103,7 +139,6 @@ test('viewers cannot update posts, even if owner', function () {
     expect($this->manager->evaluatePolicy($this->carol, 'posts.update', $this->post))->toBeFalse();
     $this->manager->authorize($this->carol, 'posts.update'); // should throw
 })->throws(AccessDeniedException::class);
-
 
 test('admins can update posts using can', function () {
     /** @var \Vima\Core\Tests\AccessFlowTestCase $this */

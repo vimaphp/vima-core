@@ -29,7 +29,7 @@ class SyncService
 
         // Sync permissions first
         foreach ($config->setup->permissions as $permission) {
-            $existing = $this->permissions->findByName($permission->getName());
+            $existing = $this->permissions->findByName($permission->name);
             if (!$existing) {
                 $this->permissions->save($permission);
             }
@@ -40,9 +40,9 @@ class SyncService
 
         foreach ($roles as $roleName => $roleData) {
             $role = $this->roles->findByName($roleName) ?? new Role(
-                $roleName,
-                [],
-                $roleData['description'] ?? null
+                name: $roleName,
+                permissions: [],
+                description: $roleData['description'] ?? null
             );
 
             foreach ($roleData['permissions'] as $permName) {

@@ -6,10 +6,10 @@ namespace Vima\Core\Config;
 
 final class Setup
 {
-    /** @param \Vima\Core\Entities\Role[] $roles */
-    /** @param \Vima\Core\Entities\Permission[]  $permissions */
     public function __construct(
+        /** @param \Vima\Core\Entities\Role[] $roles */
         public array $roles = [],
+        /** @param \Vima\Core\Entities\Permission[]  $permissions */
         public array $permissions = [],
     ) {
     }

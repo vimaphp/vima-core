@@ -3,16 +3,24 @@ declare(strict_types=1);
 
 namespace Vima\Core\Contracts;
 
+use Vima\Core\Entities\{Role, Permission};
 use Vima\Core\Entities\RolePermission;
 
 interface RolePermissionRepositoryInterface
 {
     /**
-     * Returns the permissions for the given role
-     * @param int $roleId
-     * @return ?RolePermission
+     * Returns Permssions for the role specified
+     * @param Role $args
+     * @return RolePermission[]
      */
-    public function findByRoleAndPermission(int $roleId, int $permissionId): ?RolePermission;
+    public function getRolePermissions(Role $role): array;
+
+    /**
+     * Returns the roles assigned to the specified permission
+     * @param Permission $permission
+     * @return RolePermission[]
+     */
+    public function getPermissionRoles(Permission $permission): array;
 
     /**
      * Returns all the available role_permissions
