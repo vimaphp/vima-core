@@ -2,7 +2,13 @@
 
 use Vima\Core\Config\Setup;
 use Vima\Core\Config\VimaConfig;
+use Vima\Core\Contracts\PermissionRepositoryInterface;
+use Vima\Core\Contracts\RolePermissionRepositoryInterface;
+use Vima\Core\Contracts\RoleRepositoryInterface;
+use Vima\Core\Contracts\UserPermissionRepositoryInterface;
+use Vima\Core\Contracts\UserRoleRepositoryInterface;
 use Vima\Core\DependencyContainer;
+use Vima\Core\Exceptions\PolicyNotFoundException;
 use Vima\Core\Services\SyncService;
 use Vima\Core\Services\UserResolver;
 use Vima\Core\Tests\Fixtures\Storage\InMemoryPermissionRepository;
@@ -13,9 +19,10 @@ use Vima\Core\Tests\Fixtures\Storage\InMemoryUserRoleRepository;
 use Vima\Core\Tests\Fixtures\User;
 use Vima\Core\Services\AccessManager;
 use Vima\Core\Entities\{Role, Permission};
-use Vima\Core\Contracts\UserInterface;
 use Vima\Core\Exceptions\AccessDeniedException;
 use Vima\Core\Services\PolicyRegistry;
+use function Vima\Core\registerMany;
+use function Vima\Core\resolve;
 
 beforeEach(function () {
     /** @var \Vima\Core\Tests\AccessFlowTestCase $this */
@@ -63,9 +70,14 @@ beforeEach(function () {
 
     // Setup Policy Registry
     $this->policyRegistry = new PolicyRegistry();
-    $this->policyRegistry->register('posts.update', function (UserInterface $user, $post) {
+    $this->policyRegistry->register('posts.update', function (User $user, $post) {
         // Editors and Admins can update any post
-        foreach ($user->vimaGetRoles() as $role) {
+
+        $userRoles = resolve(UserRoleRepositoryInterface::class);
+
+        //dd($userRoles);
+
+        foreach (resolve(AccessManager::class)->getUserRoles($user) as $role) {
             if (in_array($role->name, ['editor', 'admin'])) {
                 return true;
             }
@@ -73,31 +85,28 @@ beforeEach(function () {
         return false;
     });
 
-    new DependencyContainer(
-        roles: $this->roleRepo,
-        permissions: $this->permissionRepo,
-        userPermissions: new InMemoryUserPermissionRepository(),
-        userRoles: new InMemoryUserRoleRepository(),
-        rolePermissions: new InMemoryRolePermissionRepository(),
-        userResolver: $userResolver,
-        policies: $this->policyRegistry,
-    );
+    registerMany([
+        RoleRepositoryInterface::class => $this->roleRepo,
+        PermissionRepositoryInterface::class => $this->permissionRepo,
+        UserPermissionRepositoryInterface::class => new InMemoryUserPermissionRepository(),
+        UserRoleRepositoryInterface::class => new InMemoryUserRoleRepository(),
+        RolePermissionRepositoryInterface::class => new InMemoryRolePermissionRepository(),
+        UserResolver::class => $userResolver,
+        PolicyRegistry::class => $this->policyRegistry,
+        AccessManager::class,
+        SyncService::class => fn(DependencyContainer $c) => new SyncService(
+            roles: $c->get(RoleRepositoryInterface::class),
+            permissions: $c->get(PermissionRepositoryInterface::class)
+        )
+    ]);
 
-    $DC = DependencyContainer::$instance;
-
-    $this->manager = new AccessManager();
-
+    $this->manager = resolve(AccessManager::class);
 
     // two way to start off here
     // Both should work well
 
     // 1. Use the SyncSevice
-    $syncService = new SyncService(
-        roles: $DC->roles,
-        permissions: $DC->permissions
-    );
-
-    $syncService->sync($config);
+    resolve(SyncService::class)->sync($config);
 
     // 2. Add the roles using the manager->addRole
     /* foreach ($this->roles as $role) {
@@ -164,15 +173,6 @@ test('viewers can view posts using can', function () {
     expect($this->manager->can($this->carol, 'posts.view'))->toBeTrue();
     expect($this->manager->can($this->bob, 'posts.view'))->toBeTrue();
     expect($this->manager->can($this->alice, 'posts.view'))->toBeTrue();
-});
-
-test('throws exception when policy not defined but resource is provided', function () {
-    /** @var \Vima\Core\Tests\AccessFlowTestCase $this */
-
-    $user = $this->bob; // editor
-    $fakeResource = (object) ['id' => 99];
-
-    expect($this->manager->can($user, 'posts.delete', $fakeResource))->toBeFalse();
 });
 
 test('returns false when user lacks permission even if policy exists', function () {

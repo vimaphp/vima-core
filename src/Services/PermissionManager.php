@@ -4,9 +4,9 @@ namespace Vima\Core\Services;
 
 use Vima\Core\Contracts\PermissionRepositoryInterface;
 use Vima\Core\Contracts\UserPermissionRepositoryInterface;
-use Vima\Core\DependencyContainer;
 use Vima\Core\Entities\Permission;
 use Vima\Core\Exceptions\PermissionNotFoundException;
+use function Vima\Core\resolve;
 
 class PermissionManager
 {
@@ -14,10 +14,8 @@ class PermissionManager
     private UserPermissionRepositoryInterface $userPermissions;
     public function __construct()
     {
-        $DC = DependencyContainer::$instance;
-
-        $this->permissions = &$DC->permissions;
-        $this->userPermissions = &$DC->userPermissions;
+        $this->permissions = resolve(PermissionRepositoryInterface::class);
+        $this->userPermissions = resolve(UserPermissionRepositoryInterface::class);
     }
 
     public function create(string|Permission $name, ?string $description = null): Permission

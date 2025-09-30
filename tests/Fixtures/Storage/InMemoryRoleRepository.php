@@ -2,10 +2,13 @@
 
 namespace Vima\Core\Tests\Fixtures\Storage;
 
+use Vima\Core\Contracts\PermissionRepositoryInterface;
+use Vima\Core\Contracts\RolePermissionRepositoryInterface;
 use Vima\Core\Contracts\RoleRepositoryInterface;
 use Vima\Core\DependencyContainer;
 use Vima\Core\Entities\Role;
 use Vima\Core\Entities\RolePermission;
+use function Vima\Core\resolve;
 
 class InMemoryRoleRepository implements RoleRepositoryInterface
 {
@@ -14,7 +17,7 @@ class InMemoryRoleRepository implements RoleRepositoryInterface
 
     private int $id = 0;
 
-    public function findById(int|string $id): ?Role
+    public function findById(int|string $id, bool $resolve = false): ?Role
     {
         $role = null;
         array_filter($this->roles, function ($p) use ($id, &$role) {
@@ -25,6 +28,23 @@ class InMemoryRoleRepository implements RoleRepositoryInterface
 
             return $check;
         });
+
+        /** @var RolePermissionRepositoryInterface */
+        $rpRepo = resolve(RolePermissionRepositoryInterface::class);
+
+        /** @var PermissionRepositoryInterface */
+        $pmRepo = resolve(PermissionRepositoryInterface::class);
+
+        if ($role && $resolve) {
+            $rps = array_filter($rpRepo->getRolePermissions($role));
+
+            foreach ($rps as $rp) {
+                if (isset($rp->permission_id)) {
+                    $role->permissions[] = $pmRepo->findById($rp->permission_id);
+
+                }
+            }
+        }
 
         return $role;
     }
@@ -45,8 +65,8 @@ class InMemoryRoleRepository implements RoleRepositoryInterface
         $this->roles[$role->name] = $role;
 
         // get role permission memory storage
-        $rpMemory = (DependencyContainer::$instance)->rolePermissions;
-        $pmMemory = (DependencyContainer::$instance)->permissions;
+        $rpMemory = resolve(RolePermissionRepositoryInterface::class);
+        $pmMemory = resolve(PermissionRepositoryInterface::class);
 
         // add permssions to the role permission memory storage
         $i = 0;

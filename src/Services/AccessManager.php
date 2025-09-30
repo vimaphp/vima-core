@@ -13,7 +13,6 @@ use Vima\Core\Contracts\{
     UserRoleRepositoryInterface
 };
 use Vima\Core\Contracts\UserPermissionRepositoryInterface;
-use Vima\Core\DependencyContainer;
 use Vima\Core\Entities\{Role, Permission};
 use Vima\Core\Entities\UserPermission;
 use Vima\Core\Entities\UserRole;
@@ -21,6 +20,7 @@ use Vima\Core\Exceptions\AccessDeniedException;
 use Vima\Core\Exceptions\PermissionNotFoundException;
 use Vima\Core\Exceptions\PolicyNotFoundException;
 use Vima\Core\Exceptions\RoleNotFoundException;
+use function Vima\Core\resolve;
 
 /**
  * AccessManager provides a unified interface for managing user access control.
@@ -46,15 +46,13 @@ class AccessManager implements AccessManagerInterface
 
     public function __construct()
     {
-        $DC = DependencyContainer::$instance;
-
-        $this->roles = &$DC->roles;
-        $this->permissions = &$DC->permissions;
-        $this->rolePermisisons = &$DC->rolePermissions;
-        $this->userRoles = &$DC->userRoles;
-        $this->userPermissions = &$DC->userPermissions;
-        $this->policies = &$DC->policies;
-        $this->userResolver = &$DC->userResolver;
+        $this->roles = resolve(RoleRepositoryInterface::class);
+        $this->permissions = resolve(PermissionRepositoryInterface::class);
+        $this->rolePermisisons = resolve(RolePermissionRepositoryInterface::class);
+        $this->userRoles = resolve(UserRoleRepositoryInterface::class);
+        $this->userPermissions = resolve(UserPermissionRepositoryInterface::class);
+        $this->policies = resolve(PolicyRegistry::class);
+        $this->userResolver = resolve(UserResolver::class);
 
         $this->roleManager = new RoleManager();
         $this->permissionManager = new PermissionManager();
@@ -76,8 +74,6 @@ class AccessManager implements AccessManagerInterface
         $roles = $this->roleManager->getUserRoles($id, true);
 
         foreach ($roles as $role) {
-            $role = $this->roleManager->resolveRole($role);
-
             foreach ($role->permissions as $perm) {
                 if (!$permId && $permId === $perm->id) {
                     return true;
@@ -117,7 +113,11 @@ class AccessManager implements AccessManagerInterface
         }
 
         if (!empty($arguments)) {
-            return $this->evaluatePolicy($user, $permission, ...$arguments);
+            try {
+                return $this->evaluatePolicy($user, $permission, ...$arguments);
+            } catch (PolicyNotFoundException $e) {
+                return false;
+            }
         }
 
         return true;
@@ -149,11 +149,7 @@ class AccessManager implements AccessManagerInterface
      */
     public function evaluatePolicy(object $user, string $action, ...$arguments): bool
     {
-        if (!$this->policies) {
-            throw new PolicyNotFoundException($action);
-        }
-
-        if (!$this->policies->has($action)) {
+        if (!$this->validatePolicyAction($action)) {
             throw new PolicyNotFoundException($action);
         }
 
@@ -348,7 +344,7 @@ class AccessManager implements AccessManagerInterface
      */
     public function getUserRoles(object $user, bool $resolve = false): array
     {
-        return $this->roleManager->getUserRoles($this->userResolver->resolveId($user));
+        return $this->roleManager->getUserRoles($this->userResolver->resolveId($user), $resolve);
     }
 
     /**
@@ -418,5 +414,14 @@ class AccessManager implements AccessManagerInterface
                 $perm->id
             ));
         }
+    }
+
+    private function validatePolicyAction(string $action): bool
+    {
+        if (!$this->policies || !$this->policies->has($action)) {
+            return false;
+        }
+
+        return true;
     }
 }

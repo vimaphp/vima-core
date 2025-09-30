@@ -8,7 +8,7 @@ use Vima\Core\Entities\Role;
 interface RoleRepositoryInterface
 {
     public function findByName(string $name): ?Role;
-    public function findById(int|string $id): ?Role;
+    public function findById(int|string $id, bool $resolve = false): ?Role;
 
     /** @return Role[] */
     public function all(): array;

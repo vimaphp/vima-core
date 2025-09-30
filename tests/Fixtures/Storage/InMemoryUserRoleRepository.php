@@ -3,9 +3,12 @@ declare(strict_types=1);
 
 namespace Vima\Core\Tests\Fixtures\Storage;
 
+use Vima\Core\Contracts\RoleRepositoryInterface;
 use Vima\Core\Contracts\UserRoleRepositoryInterface;
+use Vima\Core\DependencyContainer;
 use Vima\Core\Entities\UserRole;
 use Vima\Core\Entities\Role;
+use function Vima\Core\resolve;
 
 class InMemoryUserRoleRepository implements UserRoleRepositoryInterface
 {
@@ -33,9 +36,15 @@ class InMemoryUserRoleRepository implements UserRoleRepositoryInterface
     public function getRolesForUser(int|string $user_id, bool $resolve = false): array
     {
         $roles = [];
+
+        /** @var RoleRepositoryInterface */
+        $rolesRepo = resolve(RoleRepositoryInterface::class);
+
         foreach ($this->userRoles as $ur) {
             if ((string) $user_id === (string) $ur->user_id) {
-                $roles[] = $ur->role_id;
+                $role = $rolesRepo->findById($ur->role_id, $resolve);
+
+                $roles[] = $role;
             }
         }
 

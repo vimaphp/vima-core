@@ -5,9 +5,9 @@ namespace Vima\Core\Services;
 use Vima\Core\Contracts\RolePermissionRepositoryInterface;
 use Vima\Core\Contracts\RoleRepositoryInterface;
 use Vima\Core\Contracts\UserRoleRepositoryInterface;
-use Vima\Core\DependencyContainer;
 use Vima\Core\Entities\Role;
 use Vima\Core\Exceptions\RoleNotFoundException;
+use function Vima\Core\resolve;
 
 class RoleManager
 {
@@ -17,12 +17,10 @@ class RoleManager
     private PermissionManager $permissionManager;
     public function __construct()
     {
-        $DC = DependencyContainer::$instance;
-
-        $this->roles = &$DC->roles;
-        $this->userRoles = &$DC->userRoles;
-        $this->rolePermissions = &$DC->rolePermissions;
-        $this->permissionManager = new PermissionManager();
+        $this->roles = resolve(RoleRepositoryInterface::class);
+        $this->userRoles = resolve(UserRoleRepositoryInterface::class);
+        $this->rolePermissions = resolve(RolePermissionRepositoryInterface::class);
+        $this->permissionManager = resolve(PermissionManager::class);
     }
     public function create(string|Role $name, ?string $description = null): Role
     {
@@ -70,7 +68,7 @@ class RoleManager
      */
     public function getUserRoles(string|int $user_id, bool $resolve = false): array
     {
-        return $this->userRoles->getRolesForUser($user_id, $resolve);
+        return array_filter($this->userRoles->getRolesForUser($user_id, $resolve));
     }
 
     public function resolveRole(int|string|Role $role, bool $isId = false): ?Role
