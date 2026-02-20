@@ -1,4 +1,13 @@
 <?php
+/**
+ * This file is part of Vima PHP.
+ *
+ * (c) Vima PHP <https://github.com/vimaphp>
+ *
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
+ */
+
 
 declare(strict_types=1);
 
@@ -7,19 +16,34 @@ namespace Vima\Core\Services;
 use Vima\Core\Config\VimaConfig;
 use Vima\Core\Exceptions\UserResolutionException;
 
+/**
+ * Class UserResolver
+ * 
+ * Responsible for extracting a unique identifier from various user object implementations.
+ *
+ * @package Vima\Core\Services
+ */
 final class UserResolver
 {
+    /**
+     * @param VimaConfig|null $config
+     */
     public function __construct(
         private readonly ?VimaConfig $config = null,
     ) {
     }
 
     /**
-     * Resolve user id.
+     * Resolves a unique ID from the given user object.
+     * 
+     * It tries several methods:
+     * 1. A dedicated `vimaGetId()` method.
+     * 2. A method configured in VimaConfig.
+     * 3. A `toVimaIdentity()` method that returns an object with an `id`.
      *
      * @param object $user
      * @return int|string
-     * @throws UserResolutionException
+     * @throws UserResolutionException If the ID cannot be resolved.
      */
     public function resolveId(object $user): int|string
     {
@@ -27,7 +51,7 @@ final class UserResolver
             return $user->vimaGetId();
         }
 
-        $mappedMethod = $this->config->userMethods->id ?? null;
+        $mappedMethod = $this->config?->userMethods?->id ?? null;
         if ($mappedMethod && method_exists($user, $mappedMethod)) {
             return $user->{$mappedMethod}();
         }

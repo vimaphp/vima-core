@@ -16,24 +16,12 @@ class InMemoryRolePermissionRepository implements RolePermissionRepositoryInterf
 
     public function getRolePermissions(Role $role): array
     {
-        /** @var RolePermission[] */
-        $rolePerms = array_values(
+        return array_values(
             array_filter(
                 $this->rolePermissions,
                 fn(RolePermission $rp) => (string) $rp->role_id === (string) $role->id
             )
         );
-
-        // get the permMemory
-        $permsMemory = resolve(PermissionRepositoryInterface::class);
-
-        $permissions = [];
-
-        foreach ($rolePerms as $rp) {
-            $permissions[] = $permsMemory->findById($rp->permission_id);
-        }
-
-        return $permissions;
     }
 
     public function getPermissionRoles(Permission $permission): array

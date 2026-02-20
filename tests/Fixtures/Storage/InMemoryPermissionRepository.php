@@ -32,7 +32,7 @@ class InMemoryPermissionRepository implements PermissionRepositoryInterface
 
     public function save(Permission $permission): Permission
     {
-        if (!$permission->id) {
+        if ($permission->id === null) {
             $permission->id = $this->id;
 
             $this->id++;

@@ -1,25 +1,22 @@
 # Vima Core
 
-**Vima Core** is a framework-independent **authorization library** that provides a clean foundation for **RBAC (Role-Based Access Control)** and **ABAC (Attribute-Based Access Control)**.
+**Vima Core** is a framework-agnostic foundation for building robust **Role-Based Access Control (RBAC)** and **Attribute-Based Access Control (ABAC)** systems in PHP.
 
-It is designed to be extended by framework-specific packages (e.g. `vima/tempest`, `vima/codeigniter`) while staying lightweight and testable at the core.
+Unlike consumer-facing packages, Vima Core is designed specifically for **framework developers** and **system architects**. It provides a "Contract-First" toolkit that you can integrate into your framework's identity and storage systems.
 
----
+## 🎯 Target Audience
 
-## ✨ Features
+- **Framework Integrators**: Building bridges for Laravel, Tempest, CodeIgniter, etc.
+- **Library Authors**: Requiring a lightweight, testable authorization foundation.
+- **Enterprise Architects**: Designing custom, decoupled security architectures.
 
-- 🔑 **Entities**: `User`, `Role`, `Permission`
-- 📜 **Contracts**: Interfaces for storage & access logic
-- 🗄 **Storage**: In-memory repositories for testing & prototyping
-- ⚙️ **Services**:
+## ✨ Core Features
 
-  - `AccessManager` – RBAC & ABAC evaluation
-  - `PolicyRegistry` – central registry for ABAC rules
-
-- 🚀 **Framework Agnostic**: Works in any PHP project
-- 🧪 **Pest tests** included (100% coverage)
-
----
+- 🧩 **Contract-First Design**: Decoupled from storage and framework specifics.
+- 🔑 **Entity Foundation**: Standardized `User`, `Role`, and `Permission` entities.
+- 📜 **Unified Access Manager**: A single entry point for both RBAC and ABAC checks.
+- ⚙️ **Flexible Policies**: Class-based and closure-based ABAC support.
+- 🧪 **Testable**: Designed with dependency injection and PSR-11 compliance.
 
 ## 📦 Installation
 
@@ -27,136 +24,84 @@ It is designed to be extended by framework-specific packages (e.g. `vima/tempest
 composer require vima/core
 ```
 
----
+## 🔧 Technical Overview
 
-## 🔧 Basic Usage
+Vima Core provides the logic; you provide the implementation.
 
-### 1. Define Roles & Permissions
+### 1. Register Implementation Contracts
 
-```php
-use Vima\Core\Entities\Role;
-use Vima\Core\Entities\Permission;
-
-$admin = Role::define('admin');
-$editor = Role::define('editor');
-
-$updatePosts = Permission::define('posts.update');
-$deletePosts = Permission::define('posts.delete');
-
-$admin->addPermission($updatePosts)->addPermission($deletePosts);
-$editor->addPermission($updatePosts);
-```
-
----
-
-### 2. Create Users & Assign Roles
+As a framework integrator, you implement the storage interfaces (Repositories) and register them in the Vima container.
 
 ```php
-use Vima\Core\Entities\User;
+use Vima\Core\Contracts\RoleRepositoryInterface;
+use Vima\Core\Contracts\PermissionRepositoryInterface;
+use function Vima\Core\registerMany;
 
-$alice = new User(1);
-$alice->assignRole($admin);
-
-$bob = new User(2);
-$bob->assignRole($editor);
+registerMany([
+    RoleRepositoryInterface::class => new YourDatabaseRoleRepository(),
+    PermissionRepositoryInterface::class => new YourDatabasePermissionRepository(),
+    // ... other repositories
+]);
 ```
 
----
+### 2. Authorization Checks
 
-### 3. RBAC – Check Access
+Once set up, authorization is simple and consistent.
 
 ```php
 use Vima\Core\Services\AccessManager;
+use function Vima\Core\resolve;
 
-$manager = new AccessManager();
+$vima = resolve(AccessManager::class);
 
-$manager->can($alice, 'posts.delete'); // true
-$manager->can($bob, 'posts.delete');   // false
+// RBAC Check
+if ($vima->can($user, 'posts.edit')) {
+    // Authorized...
+}
+
+// ABAC Check (with context)
+if ($vima->can($user, 'posts.edit', $post)) {
+    // Authorized based on policy logic...
+}
 ```
 
----
+### 3. Defining Policies (ABAC)
 
-### 4. ABAC – Define Policies
+Policies are class-based rules for specific resources.
 
 ```php
-use Vima\Core\Services\PolicyRegistry;
+use Vima\Core\Contracts\PolicyInterface;
 
-$policies = PolicyRegistry::define([
-    'posts.update' => fn(User $user, $post) => $user->getId() === $post->ownerId,
-]);
+class PostPolicy implements PolicyInterface {
+    public function canEdit(User $user, Post $post) {
+        return $user->vimaGetId() === $post->userId;
+    }
+}
 
-$manager = new AccessManager($policies);
-
-$post = (object) ['ownerId' => 2];
-
-$manager->evaluatePolicy($bob, 'posts.update', $post); // true (owner matches)
-$manager->evaluatePolicy($alice, 'posts.update', $post); // false
+$vima->registerPolicy(Post::class, PostPolicy::class);
 ```
 
----
+## 📚 Documentation
 
-## 🛠 CLI
+Detailed guides for deep integration:
 
-The package ships with a lightweight CLI (via Symfony Console).
-
-```bash
-php vendor/bin/vima
-```
-
-Example commands:
-
-```bash
-php vendor/bin/vima list
-php vendor/bin/vima make:role admin
-php vendor/bin/vima make:permission posts.update
-```
-
----
-
-## 🧪 Testing
-
-This package uses [Pest](https://pestphp.com/) for testing.
-
-Run the test suite:
-
-```bash
-composer test
-```
-
-With coverage:
-
-```bash
-composer test-coverage
-```
-
-Expected: **100% code coverage** ✅
-
----
+- [**Architecture Overview**](docs/architecture.md) – Understand the design and "The Vima Way".
+- [**Integration Guide**](docs/integration.md) – Step-by-step instructions for framework developers.
 
 ## 📂 Package Structure
 
 ```
 src/
- ├── Contracts/         # Interfaces
- ├── Entities/          # User, Role, Permission
- ├── Exceptions/        # Domain-specific exceptions
- ├── Services/          # AccessManager, PolicyRegistry
- ├── Storage/           # InMemory repositories
- └── Console/           # CLI entrypoint
-tests/                  # Pest tests
+ ├── Contracts/         # Persistent layer and service interfaces
+ ├── Entities/          # Core security data structures
+ ├── Services/          # AccessManager, PolicyRegistry, and Managers
+ ├── Support/           # Framework integration helpers
+ └── DependencyContainer.php # Vima's PSR-11 container
 ```
-
----
-
-## 🔮 Roadmap
-
-- [ ] Add persistence adapters (DB, cache, file storage)
-- [ ] Framework integrations (Laravel, Symfony, CI4)
-- [ ] Policy composition (`can` + `evaluatePolicy`)
-- [ ] Middleware support for HTTP frameworks
-
----
 
 ## 📜 License
 
-MIT License. Do whatever you want, just don’t blame us if you lock yourself out. 🔒
+This package is part of **Vima PHP** and is released under the MIT License.
+
+---
+(c) Vima PHP <https://github.com/vimaphp>

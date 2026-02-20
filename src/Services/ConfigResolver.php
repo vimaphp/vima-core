@@ -1,4 +1,13 @@
 <?php
+/**
+ * This file is part of Vima PHP.
+ *
+ * (c) Vima PHP <https://github.com/vimaphp>
+ *
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
+ */
+
 
 namespace Vima\Core\Services;
 
@@ -7,16 +16,29 @@ use Vima\Core\Entities\Permission;
 use Vima\Core\Entities\Role;
 use Vima\Core\Exceptions\InvalidConfigException;
 
+/**
+ * Class ConfigResolver
+ * 
+ * Logic to validate and resolve system configuration, including expanding wildcard permissions.
+ *
+ * @package Vima\Core\Services
+ */
 class ConfigResolver
 {
-
+    /**
+     * @param VimaConfig $config
+     */
     public function __construct(protected VimaConfig $config)
     {
         $this->validateConfig($config);
     }
 
     /**
-     * Validate structure of provided config array.
+     * Validate the structure of the provided configuration.
+     *
+     * @param VimaConfig $config
+     * @return void
+     * @throws InvalidConfigException
      */
     protected function validateConfig(VimaConfig $config): void
     {
@@ -42,7 +64,9 @@ class ConfigResolver
     }
 
     /**
-     * @return string[] list of permission names
+     * Retrieve all permission names from the configuration.
+     * 
+     * @return string[] List of permission names.
      */
     public function getPermissions(): array
     {
@@ -50,7 +74,7 @@ class ConfigResolver
     }
 
     /**
-     * Get roles with expanded permissions.
+     * Get roles with expanded permissions (resolving wildcards).
      *
      * @return array<string, array{description:?string, permissions:string[]}>
      */
@@ -69,10 +93,10 @@ class ConfigResolver
     }
 
     /**
-     * Expand wildcard patterns into actual permissions.
+     * Expand wildcard patterns into actual permission names.
      *
      * @param Permission[] $permissions
-     * @return string[]
+     * @return string[] Resolved list of permission names.
      */
     protected function resolveRolePermissions(array $permissions): array
     {

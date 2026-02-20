@@ -1,4 +1,13 @@
 <?php
+/**
+ * This file is part of Vima PHP.
+ *
+ * (c) Vima PHP <https://github.com/vimaphp>
+ *
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
+ */
+
 declare(strict_types=1);
 
 namespace Vima\Core;
@@ -8,6 +17,13 @@ use ReflectionNamedType;
 use Closure;
 use Psr\Container\ContainerInterface;
 
+/**
+ * Class DependencyContainer
+ * 
+ * A simple PSR-11 compliant dependency injection container with auto-wiring capabilities.
+ *
+ * @package Vima\Core
+ */
 class DependencyContainer implements ContainerInterface
 {
     private static ?DependencyContainer $instance = null;
@@ -18,6 +34,9 @@ class DependencyContainer implements ContainerInterface
     /** @var array<class-string, object> */
     private array $instances = [];
 
+    /**
+     * @param array $bindings Optional initial bindings.
+     */
     public function __construct(array $bindings = [])
     {
         foreach ($bindings as $abstract => $concrete) {
@@ -29,6 +48,11 @@ class DependencyContainer implements ContainerInterface
         }
     }
 
+    /**
+     * Singleton accessor for the container.
+     *
+     * @return DependencyContainer
+     */
     public static function getInstance(): DependencyContainer
     {
         if (self::$instance === null) {
@@ -37,15 +61,25 @@ class DependencyContainer implements ContainerInterface
         return self::$instance;
     }
 
+    /**
+     * Register a binding between an abstract and a concrete implementation.
+     *
+     * @param string $abstract
+     * @param object|string|null $concrete
+     * @return void
+     * @throws \RuntimeException
+     */
     public function register(string $abstract, object|string|null $concrete = null): void
     {
+        unset($this->instances[$abstract]);
+
         if ($concrete === null && class_exists($abstract)) {
-            $this->bindings[$abstract] = fn() => new $abstract();
+            $this->bindings[$abstract] = fn(self $c) => new $abstract();
             return;
         }
 
         if (is_string($concrete) && class_exists($concrete)) {
-            $this->bindings[$abstract] = fn() => new $concrete();
+            $this->bindings[$abstract] = fn(self $c) => new $concrete();
             return;
         }
 
@@ -62,6 +96,12 @@ class DependencyContainer implements ContainerInterface
         throw new \RuntimeException("Cannot register binding for {$abstract}");
     }
 
+    /**
+     * Register multiple bindings at once.
+     *
+     * @param array $dependencies
+     * @return void
+     */
     public function registerMany(array $dependencies): void
     {
         foreach ($dependencies as $abstract => $concrete) {
@@ -73,11 +113,25 @@ class DependencyContainer implements ContainerInterface
         }
     }
 
+    /**
+     * Manually bind an instance to an abstract.
+     *
+     * @param string $abstract
+     * @param object $instance
+     * @return void
+     */
     public function bind(string $abstract, object $instance): void
     {
         $this->instances[$abstract] = $instance;
     }
 
+    /**
+     * Resolve and retrieve an instance from the container.
+     *
+     * @param string $id
+     * @return object
+     * @throws \RuntimeException
+     */
     public function get(string $id): object
     {
         if (isset($this->instances[$id])) {
@@ -110,11 +164,24 @@ class DependencyContainer implements ContainerInterface
         return $this->instances[$id] = $this->build($id);
     }
 
+    /**
+     * Check if the container has a binding or instance for the given ID.
+     *
+     * @param string $id
+     * @return bool
+     */
     public function has(string $id): bool
     {
         return isset($this->instances[$id]) || isset($this->bindings[$id]) || class_exists($id) || interface_exists($id);
     }
 
+    /**
+     * Auto-wire and build an instance of the given class.
+     *
+     * @param string $class
+     * @return object
+     * @throws \RuntimeException
+     */
     private function build(string $class): object
     {
         $reflector = new ReflectionClass($class);
@@ -150,6 +217,11 @@ class DependencyContainer implements ContainerInterface
         return $reflector->newInstanceArgs($params);
     }
 
+    /**
+     * Reset the singleton instance (useful for testing).
+     *
+     * @return void
+     */
     public static function reset(): void
     {
         self::$instance = null;

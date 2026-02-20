@@ -1,4 +1,13 @@
 <?php
+/**
+ * This file is part of Vima PHP.
+ *
+ * (c) Vima PHP <https://github.com/vimaphp>
+ *
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
+ */
+
 
 namespace Vima\Core\Services;
 
@@ -9,8 +18,19 @@ use Vima\Core\Entities\Role;
 use Vima\Core\Entities\Permission;
 use Vima\Core\Services\ConfigResolver;
 
+/**
+ * Class SyncService
+ * 
+ * Synchronizes declarative configuration (roles and permissions) into the persistent storage.
+ *
+ * @package Vima\Core\Services
+ */
 class SyncService
 {
+    /**
+     * @param RoleRepositoryInterface $roles
+     * @param PermissionRepositoryInterface $permissions
+     */
     public function __construct(
         private RoleRepositoryInterface $roles,
         private PermissionRepositoryInterface $permissions
@@ -18,9 +38,13 @@ class SyncService
     }
 
     /**
-     * Syncs configuration array into repositories.
+     * Synchronizes the provided configuration into repositories.
+     * 
+     * It ensures all permissions exist first, then creates/updates roles 
+     * and maps the permissions to them.
      *
-     * @param VimaConfig $config The raw config array (permissions & roles)
+     * @param VimaConfig $config The system configuration.
+     * @return void
      */
     public function sync(VimaConfig $config): void
     {

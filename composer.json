@@ -32,7 +32,7 @@
     "bin/vima"
   ],
   "scripts": {
-    "test": "phpunit"
+    "test": "pest"
   },
   "minimum-stability": "stable",
   "prefer-stable": true,

@@ -72,11 +72,6 @@ beforeEach(function () {
     $this->policyRegistry = new PolicyRegistry();
     $this->policyRegistry->register('posts.update', function (User $user, $post) {
         // Editors and Admins can update any post
-
-        $userRoles = resolve(UserRoleRepositoryInterface::class);
-
-        //dd($userRoles);
-
         foreach (resolve(AccessManager::class)->getUserRoles($user) as $role) {
             if (in_array($role->name, ['editor', 'admin'])) {
                 return true;
@@ -124,7 +119,7 @@ beforeEach(function () {
     $this->manager->grantRole($this->carol, $viewerRole);
 
     // Fake post resource
-    $this->post = (object) ['id' => 1, 'owner' => 3];
+    $this->post = ['id' => 1, 'owner' => 3];
 });
 
 test('admins can update posts', function () {

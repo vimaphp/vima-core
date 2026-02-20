@@ -1,24 +1,60 @@
 <?php
+/**
+ * This file is part of Vima PHP.
+ *
+ * (c) Vima PHP <https://github.com/vimaphp>
+ *
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
+ */
+
 declare(strict_types=1);
 
 namespace Vima\Core\Contracts;
 
-use Vima\Core\Contracts\UserInterface;
-
+/**
+ * Interface PolicyRegistryInterface
+ * 
+ * Defines the contract for the ABAC policy registry.
+ *
+ * @package Vima\Core\Contracts
+ */
 interface PolicyRegistryInterface
 {
     /**
-     * Register a policy for a given action or resource.
+     * Register a policy logic for a given ability.
+     *
+     * @param string $ability
+     * @param callable $callback
+     * @return void
      */
     public function register(string $ability, callable $callback): void;
 
     /**
-     * Evaluate if a user can perform an ability on a resource.
+     * Register a class-based policy for a resource.
+     *
+     * @param string $resourceClass
+     * @param string $policyClass
+     * @return void
      */
-    public function evaluate(UserInterface $user, string $ability, mixed $resource): bool;
+    public function registerClass(string $resourceClass, string $policyClass): void;
 
     /**
-     * Evaluate if a user can perform an ability on a resource.
+     * Evaluate if a user meets the policy requirements for an ability.
+     *
+     * @param object $user The user object.
+     * @param string $ability The ability name.
+     * @param mixed ...$arguments Contextual arguments for evaluation.
+     * @return bool
      */
-    public function has(string $action): bool;
+    public function evaluate(object $user, string $ability, ...$arguments): bool;
+
+    /**
+     * Check if a policy exists for the given action.
+     *
+     * @param string $action
+     * @param mixed ...$arguments
+     * @return bool
+     */
+    public function has(string $action, ...$arguments): bool;
 }

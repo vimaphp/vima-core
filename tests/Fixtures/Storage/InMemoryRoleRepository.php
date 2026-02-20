@@ -56,7 +56,7 @@ class InMemoryRoleRepository implements RoleRepositoryInterface
 
     public function save(Role $role): Role
     {
-        if (!$role->id) {
+        if ($role->id === null) {
             $role->id = $this->id;
 
             $this->id++;

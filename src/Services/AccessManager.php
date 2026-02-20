@@ -1,4 +1,13 @@
 <?php
+/**
+ * This file is part of Vima PHP.
+ *
+ * (c) Vima PHP <https://github.com/vimaphp>
+ *
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
+ */
+
 
 namespace Vima\Core\Services;
 
@@ -75,7 +84,7 @@ class AccessManager implements AccessManagerInterface
 
         foreach ($roles as $role) {
             foreach ($role->permissions as $perm) {
-                if (!$permId && $permId === $perm->id) {
+                if ($permId !== null && $perm->id === $permId) {
                     return true;
                 }
 
@@ -86,7 +95,7 @@ class AccessManager implements AccessManagerInterface
         }
 
         foreach ($this->permissionManager->getUserSpecificPermissions($id) as $perm) {
-            if (!$permId && $permId === $perm->id) {
+            if ($permId !== null && $perm->id === $permId) {
                 return true;
             }
 
@@ -149,13 +158,20 @@ class AccessManager implements AccessManagerInterface
      */
     public function evaluatePolicy(object $user, string $action, ...$arguments): bool
     {
-        if (!$this->validatePolicyAction($action)) {
+        if (!$this->validatePolicyAction($action, ...$arguments)) {
             throw new PolicyNotFoundException($action);
         }
 
         return $this->policies->evaluate($user, $action, ...$arguments);
     }
 
+    /**
+     * Create or retrieve a role by name.
+     *
+     * @param string|Role $role The role name or entity.
+     * @param string|null $description Optional description.
+     * @return Role
+     */
     public function addRole(string|Role $role, ?string $description = null): Role
     {
         try {
@@ -171,6 +187,13 @@ class AccessManager implements AccessManagerInterface
         return $newRole;
     }
 
+    /**
+     * Create or retrieve a permission by name.
+     *
+     * @param string|Permission $permission The permission name or entity.
+     * @param string|null $description Optional description.
+     * @return Permission
+     */
     public function addPermission(string|Permission $permission, ?string $description = null): Permission
     {
         try {
@@ -186,16 +209,34 @@ class AccessManager implements AccessManagerInterface
         return $newPerm;
     }
 
+    /**
+     * Persist an updated role.
+     *
+     * @param Role $role
+     * @return Role
+     */
     public function updateRole(Role $role): Role
     {
         return $this->roleManager->save($role);
     }
 
+    /**
+     * Persist an updated permission.
+     *
+     * @param Permission $permission
+     * @return Permission
+     */
     public function updatePermission(Permission $permission): Permission
     {
         return $this->permissionManager->save($permission);
     }
 
+    /**
+     * Get a role by name.
+     *
+     * @param string $name
+     * @return Role|null
+     */
     public function getRole(string $name): ?Role
     {
         try {
@@ -205,6 +246,12 @@ class AccessManager implements AccessManagerInterface
         }
     }
 
+    /**
+     * Get a permission by name.
+     *
+     * @param string $name
+     * @return Permission|null
+     */
     public function getPermission(string $name): ?Permission
     {
         return $this->permissionManager->find($name);
@@ -285,6 +332,7 @@ class AccessManager implements AccessManagerInterface
 
     /**
      * Grants a direct permission to a user (not tied to roles).
+     * If the permission does not exist one is created
      *
      * @param object $user User object.
      * @param string|Permission $permission Permission name.
@@ -294,19 +342,21 @@ class AccessManager implements AccessManagerInterface
     {
         $userId = $this->userResolver->resolveId($user);
 
-        // check for role by name
+        // check for permission by name
         $permissionRecord = $this->permissionManager->find($permission);
 
-        // create role if it does not exist
+        // create permission if it does not exist
         if (!$permissionRecord) {
             $permissionRecord = $this->permissionManager->create($permission);
         }
 
         $this->userPermissions
-            ->add(UserPermission::define(
-                user_id: $userId,
-                permission_id: $permissionRecord->id
-            ));
+            ->add(
+                UserPermission::define(
+                    user_id: $userId,
+                    permission_id: $permissionRecord->id
+                )
+            );
     }
 
     /**
@@ -370,14 +420,33 @@ class AccessManager implements AccessManagerInterface
             $this->permissionManager->getUserSpecificPermissions($id)
         ));
     }
+    /**
+     * @inheritDoc
+     */
+    public function getUserSpecificPermissions(object $user): array
+    {
+        $id = $this->userResolver->resolveId($user);
+        return $this->permissionManager->getUserSpecificPermissions($id);
+    }
 
     /**
-     * Synchronize a user's grants with provided roles and permissions.
-     *
-     * @param object $user User object.
-     * @param Role[] $roles Roles to sync.
-     * @param ?Permission[] $permissions Permissions to sync.
-     * @return void
+     * @inheritDoc
+     */
+    public function definePolicy(string $action, callable $callback): void
+    {
+        $this->policies->register($action, $callback);
+    }
+
+    /**
+     * @inheritDoc
+     */
+    public function registerPolicy(string $resourceClass, string $policyClass): void
+    {
+        $this->policies->registerClass($resourceClass, $policyClass);
+    }
+
+    /**
+     * @inheritDoc
      */
     public function syncUserGrants(object $user, array $roles, ?array $permissions = null): void
     {
@@ -416,9 +485,15 @@ class AccessManager implements AccessManagerInterface
         }
     }
 
-    private function validatePolicyAction(string $action): bool
+    /**
+     * Validates if a policy action exists in the registry.
+     *
+     * @param string $action
+     * @return bool
+     */
+    private function validatePolicyAction(string $action, ...$arguments): bool
     {
-        if (!$this->policies || !$this->policies->has($action)) {
+        if (!$this->policies || !$this->policies->has($action, ...$arguments)) {
             return false;
         }
 
