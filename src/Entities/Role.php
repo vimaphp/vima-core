@@ -51,7 +51,7 @@ class Role
 
         foreach ($permissions as $perm) {
             $permission = $perm instanceof Permission ? $perm : new Permission(name: $perm);
-            $role->addPermission($permission);
+            $role->permit($permission);
         }
 
         $role->description = $description;
@@ -65,10 +65,10 @@ class Role
      * @param Permission $permission
      * @return $this
      */
-    public function addPermission(Permission $permission): self
+    public function permit(Permission|string $permission): self
     {
         if (!in_array($permission, $this->permissions, true)) {
-            $this->permissions[] = $permission;
+            $this->permissions[] = $permission instanceof Permission ? $permission : new Permission(name: $permission);
         }
 
         return $this;
@@ -80,7 +80,7 @@ class Role
      * @param Permission $permission
      * @return $this
      */
-    public function removePermission(Permission $permission): self
+    public function forbid(Permission $permission): self
     {
         $this->permissions = array_filter(
             $this->permissions,
@@ -96,7 +96,7 @@ class Role
      * @param string ...$permissions Variable list of permission names.
      * @return bool
      */
-    public function hasPermission(string ...$permissions): bool
+    public function isPermitted(string ...$permissions): bool
     {
         $perms = [];
 

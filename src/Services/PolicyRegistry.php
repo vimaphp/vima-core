@@ -13,6 +13,8 @@ declare(strict_types=1);
 namespace Vima\Core\Services;
 
 use Vima\Core\Contracts\{PolicyInterface, PolicyRegistryInterface};
+use Vima\Core\Exceptions\PolicyNotFoundException;
+use Vima\Core\Exceptions\PolicyMethodNotFoundException;
 
 /**
  * Class PolicyRegistry
@@ -90,6 +92,7 @@ class PolicyRegistry implements PolicyRegistryInterface
         if (!empty($arguments) && is_object($arguments[0])) {
             $resource = $arguments[0];
             $resourceClass = get_class($resource);
+            $arguments[] = $ability; // provide the ability to the policy method
 
             if (isset($this->policiesClasses[$resourceClass])) {
                 $policyClass = $this->policiesClasses[$resourceClass];
@@ -99,11 +102,13 @@ class PolicyRegistry implements PolicyRegistryInterface
                 if (method_exists($policy, $method)) {
                     return (bool) $policy->$method($user, ...$arguments);
                 }
+
+                throw new PolicyMethodNotFoundException($policyClass, $method);
             }
 
-            // User specifically asked to throw exception if resource provided but no policy found
-            throw new \Exception("No policy registered for resource class: {$resourceClass}");
+            throw new PolicyNotFoundException("No policy class registered for resource: {$resourceClass}");
         }
+
 
         // 2. Fallback to callback-based policies
         if (!isset($this->policies[$ability])) {
@@ -129,7 +134,7 @@ class PolicyRegistry implements PolicyRegistryInterface
             $ability = end($parts);
         }
 
-        // Convert to camelCase and prefix with 'can'
+        // Convert to camelCase and prefix with 'allows'
         $method = 'can' . str_replace(' ', '', ucwords(str_replace(['-', '_'], ' ', $ability)));
 
         return $method;

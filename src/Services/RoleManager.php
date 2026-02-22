@@ -73,7 +73,7 @@ class RoleManager
             : $this->roles->findByName($name);
 
         if (!$role) {
-            throw new RoleNotFoundException("Role with the name [$name] not found");
+            throw new RoleNotFoundException($name);
         }
 
         return $role;

@@ -72,4 +72,9 @@ class InMemoryRolePermissionRepository implements RolePermissionRepositoryInterf
             )
         );
     }
+
+    public function deleteAll(): void
+    {
+        $this->rolePermissions = [];
+    }
 }

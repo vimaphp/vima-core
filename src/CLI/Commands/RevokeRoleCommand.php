@@ -60,7 +60,7 @@ final class RevokeRoleCommand extends Command
                     return $this->id; }
             };
 
-            $manager->revokeRole($user, $roleName);
+            $manager->detachRole($user, $roleName);
             $output->writeln("<info>Role [{$roleName}] revoked from user [{$userId}] successfully.</info>");
         } catch (\Throwable $e) {
             $output->writeln("<error>Failed to revoke role: {$e->getMessage()}</error>");

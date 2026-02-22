@@ -62,4 +62,11 @@ interface RoleRepositoryInterface
      * @return void
      */
     public function delete(Role $role): void;
+
+    /**
+     * Remove all roles from storage.
+     *
+     * @return void
+     */
+    public function deleteAll(): void;
 }

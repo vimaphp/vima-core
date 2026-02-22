@@ -74,7 +74,7 @@ use Vima\Core\Contracts\PolicyInterface;
 
 class PostPolicy implements PolicyInterface {
     public function canEdit(User $user, Post $post) {
-        return $user->vimaGetId() === $post->userId;
+        return $user->id === $post->userId;
     }
 }
 

@@ -47,6 +47,12 @@ final class UserResolver
      */
     public function resolveId(object $user): int|string
     {
+        // 1. Custom resolver from config takes precedence
+        if ($this->config?->userResolver !== null) {
+            return ($this->config->userResolver)($user);
+        }
+
+        // 2. Fallback to standard methods
         if (method_exists($user, 'vimaGetId')) {
             return $user->vimaGetId();
         }
@@ -64,5 +70,12 @@ final class UserResolver
         }
 
         throw new UserResolutionException('Could not resolve roles for user. Check the documentation on user resolution.');
+    }
+
+    public function getIdResolver(): \Closure
+    {
+        return $this->config?->userResolver ?? function (object $user) {
+            return $this->resolveId($user);
+        };
     }
 }

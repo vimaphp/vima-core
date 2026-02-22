@@ -46,6 +46,8 @@ interface PolicyRegistryInterface
      * @param string $ability The ability name.
      * @param mixed ...$arguments Contextual arguments for evaluation.
      * @return bool
+     * @throws \Vima\Core\Exceptions\PolicyNotFoundException
+     * @throws \Vima\Core\Exceptions\PolicyMethodNotFoundException
      */
     public function evaluate(object $user, string $ability, ...$arguments): bool;
 

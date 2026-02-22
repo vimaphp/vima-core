@@ -15,8 +15,12 @@ use RuntimeException;
 
 class PolicyNotFoundException extends RuntimeException
 {
-    public function __construct(string $permission)
+    public function __construct(string $messageOrPermission)
     {
-        parent::__construct("No policy registered for permission: {$permission}");
+        $message = strpos($messageOrPermission, ' ') === false
+            ? "No policy registered for ability/resource: {$messageOrPermission}"
+            : $messageOrPermission;
+
+        parent::__construct($message);
     }
 }

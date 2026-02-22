@@ -32,7 +32,7 @@ interface AccessManagerInterface
      * @param string $permission The permission name.
      * @return bool
      */
-    public function userHasPermission(object $user, string $permission): bool;
+    public function isPermitted(object $user, string $permission): bool;
 
     /**
      * Authorize the given user for a specific permission.
@@ -43,7 +43,7 @@ interface AccessManagerInterface
      * @param mixed ...$arguments Optional context arguments for policy evaluation.
      * @throws \Vima\Core\Exceptions\AccessDeniedException If authorization fails.
      */
-    public function authorize(object $user, string $permission, ...$arguments): void;
+    public function enforce(object $user, string $permission, ...$arguments): void;
 
     /**
      * Evaluate a fine-grained policy (ABAC) for a given action.
@@ -73,7 +73,7 @@ interface AccessManagerInterface
      * @param string|null $description Optional role description.
      * @return Role
      */
-    public function addRole(string|Role $role, ?string $description = null): Role;
+    public function ensureRole(string|Role $role, ?string $description = null): Role;
 
     /**
      * Create or retrieve a permission by name.
@@ -82,7 +82,7 @@ interface AccessManagerInterface
      * @param string|null $description Optional permission description.
      * @return Permission
      */
-    public function addPermission(string|Permission $permission, ?string $description = null): Permission;
+    public function ensurePermission(string|Permission $permission, ?string $description = null): Permission;
 
     /**
      * Save an existing role's changes to persistent storage.
@@ -122,7 +122,7 @@ interface AccessManagerInterface
      * @param object $user The user object.
      * @param string|Role $role The role name or entity.
      */
-    public function grantRole(object $user, string|Role $role): void;
+    public function assignRole(object $user, string|Role $role): void;
 
     /**
      * Revoke a role from a user.
@@ -130,7 +130,7 @@ interface AccessManagerInterface
      * @param object $user The user object.
      * @param string|Role $role The role name or entity.
      */
-    public function revokeRole(object $user, string|Role $role): void;
+    public function detachRole(object $user, string|Role $role): void;
 
     /**
      * Check if a user has been assigned a specific role.
@@ -139,7 +139,7 @@ interface AccessManagerInterface
      * @param string|Role $role The role name or entity.
      * @return bool
      */
-    public function userHasRole(object $user, string|Role $role): bool;
+    public function hasRole(object $user, string|Role $role): bool;
 
     /**
      * Grant a direct permission to a user (not through a role).
@@ -147,7 +147,7 @@ interface AccessManagerInterface
      * @param object $user The user object.
      * @param string|Permission $permission The permission name or entity.
      */
-    public function grantPermission(object $user, string|Permission $permission): void;
+    public function permit(object $user, string|Permission $permission): void;
 
     /**
      * Revoke a direct permission from a user.
@@ -155,7 +155,7 @@ interface AccessManagerInterface
      * @param object $user The user object.
      * @param string|Permission $permission The permission name or entity.
      */
-    public function revokePermission(object $user, string|Permission $permission): void;
+    public function forbid(object $user, string|Permission $permission): void;
 
     /**
      * Retrieve all roles assigned to the given user.
@@ -179,9 +179,9 @@ interface AccessManagerInterface
      * @param object $user The user object.
      * @return Permission[]
      */
-    public function getUserSpecificPermissions(object $user): array;
+    public function getDirectPermissions(object $user): array;
 
-    public function definePolicy(string $action, callable $callback): void;
+    public function govern(string $action, callable $callback): void;
 
     /**
      * Register a class-based policy for a resource.
@@ -199,6 +199,6 @@ interface AccessManagerInterface
      * @param Role[] $roles Array of roles to sync to.
      * @param Permission[]|null $permissions Array of specific permissions to sync to.
      */
-    public function syncUserGrants(object $user, array $roles, ?array $permissions = null): void;
+    public function reconcileAccess(object $user, array $roles, ?array $permissions = null): void;
 }
 

@@ -52,4 +52,10 @@ class InMemoryPermissionRepository implements PermissionRepositoryInterface
     {
         return $this->permissions;
     }
+
+    public function deleteAll(): void
+    {
+        $this->permissions = [];
+        $this->id = 0;
+    }
 }

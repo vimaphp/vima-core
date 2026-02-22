@@ -60,7 +60,7 @@ final class AssignRoleCommand extends Command
                     return $this->id; }
             };
 
-            $manager->grantRole($user, $roleName);
+            $manager->assignRole($user, $roleName);
             $output->writeln("<info>Role [{$roleName}] assigned to user [{$userId}] successfully.</info>");
         } catch (\Throwable $e) {
             $output->writeln("<error>Failed to assign role: {$e->getMessage()}</error>");

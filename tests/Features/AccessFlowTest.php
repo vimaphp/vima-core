@@ -105,18 +105,18 @@ beforeEach(function () {
 
     // 2. Add the roles using the manager->addRole
     /* foreach ($this->roles as $role) {
-        $this->manager->addRole($role);
+        $this->manager->ensureRole($role);
     } */
 
     // Fake users
     $this->alice = new User(1);
-    $this->manager->grantRole($this->alice, $adminRole);
+    $this->manager->assignRole($this->alice, $adminRole);
 
     $this->bob = new User(2);
-    $this->manager->grantRole($this->bob, $editorRole);
+    $this->manager->assignRole($this->bob, $editorRole);
 
     $this->carol = new User(3);
-    $this->manager->grantRole($this->carol, $viewerRole);
+    $this->manager->assignRole($this->carol, $viewerRole);
 
     // Fake post resource
     $this->post = ['id' => 1, 'owner' => 3];
@@ -125,23 +125,23 @@ beforeEach(function () {
 test('admins can update posts', function () {
     /** @var \Vima\Core\Tests\AccessFlowTestCase $this */
 
-    expect($this->manager->userHasPermission($this->alice, 'posts.update'))->toBeTrue();
+    expect($this->manager->isPermitted($this->alice, 'posts.update'))->toBeTrue();
     expect($this->manager->evaluatePolicy($this->alice, 'posts.update', $this->post))->toBeTrue();
 });
 
 test('editors can update posts', function () {
     /** @var \Vima\Core\Tests\AccessFlowTestCase $this */
 
-    expect($this->manager->userHasPermission($this->bob, 'posts.update'))->toBeTrue();
+    expect($this->manager->isPermitted($this->bob, 'posts.update'))->toBeTrue();
     expect($this->manager->evaluatePolicy($this->bob, 'posts.update', $this->post))->toBeTrue();
 });
 
 test('viewers cannot update posts, even if owner', function () {
     /** @var \Vima\Core\Tests\AccessFlowTestCase $this */
 
-    expect($this->manager->userHasPermission($this->carol, 'posts.update'))->toBeFalse();
+    expect($this->manager->isPermitted($this->carol, 'posts.update'))->toBeFalse();
     expect($this->manager->evaluatePolicy($this->carol, 'posts.update', $this->post))->toBeFalse();
-    $this->manager->authorize($this->carol, 'posts.update'); // should throw
+    $this->manager->enforce($this->carol, 'posts.update'); // should throw
 })->throws(AccessDeniedException::class);
 
 test('admins can update posts using can', function () {

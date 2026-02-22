@@ -6,10 +6,10 @@ it('can add and check permissions', function () {
     $role = new Role('admin');
     $perm = new Permission('users.delete');
 
-    $role->addPermission($perm);
+    $role->permit($perm);
 
-    expect($role->hasPermission('users.delete'))->toBeTrue()
-        ->and($role->hasPermission('users.edit'))->toBeFalse();
+    expect($role->isPermitted('users.delete'))->toBeTrue()
+        ->and($role->isPermitted('users.edit'))->toBeFalse();
 });
 
 it('returns role name correctly', function () {
@@ -19,7 +19,7 @@ it('returns role name correctly', function () {
 
 it('returns permissions list', function () {
     $role = new Role('viewer');
-    $role->addPermission(new Permission('posts.view'));
+    $role->permit(new Permission('posts.view'));
 
     expect($role->permissions)
         ->toBeArray()
@@ -35,21 +35,21 @@ it('removes a permission', function () {
     $role = new Role("author");
     $permission = new Permission("blog.create");
 
-    $role->addPermission($permission);
+    $role->permit($permission);
 
-    expect($role->hasPermission('blog.create'))->toBeTrue();
+    expect($role->isPermitted('blog.create'))->toBeTrue();
 
-    $role->removePermission($permission);
+    $role->forbid($permission);
 
-    expect($role->hasPermission('blog.create'))->toBeFalse();
+    expect($role->isPermitted('blog.create'))->toBeFalse();
 });
 
 it('defines a role with string permissions', function () {
     $role = Role::define('editor', ['posts.create', 'posts.edit']);
 
     expect($role->name)->toBe('editor')
-        ->and($role->hasPermission('posts.create'))->toBeTrue()
-        ->and($role->hasPermission('posts.edit'))->toBeTrue();
+        ->and($role->isPermitted('posts.create'))->toBeTrue()
+        ->and($role->isPermitted('posts.edit'))->toBeTrue();
 });
 
 it('defines a role with Permission objects', function () {
@@ -58,8 +58,8 @@ it('defines a role with Permission objects', function () {
 
     $role = Role::define('admin', [$p1, $p2]);
 
-    expect($role->hasPermission('users.view'))->toBeTrue()
-        ->and($role->hasPermission('users.delete'))->toBeTrue();
+    expect($role->isPermitted('users.view'))->toBeTrue()
+        ->and($role->isPermitted('users.delete'))->toBeTrue();
 });
 
 it('defines a role with no permissions', function () {

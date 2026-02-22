@@ -35,16 +35,16 @@ it('assigns roles to user', function () {
     $user = $this->userManager->find(202);
 
     $role = new Role('editor');
-    $role->addPermission(new Permission('posts.create'));
+    $role->permit(new Permission('posts.create'));
 
-    $user->addRole($role);
+    $user->ensureRole($role);
 
     $this->userManager->save($user);
 
     /** @var User */
     $user = $this->userManager->find(202);
 
-    expect($user->hasPermission('posts.create'))->toBeTrue();
+    expect($user->isPermitted('posts.create'))->toBeTrue();
 });
 
 

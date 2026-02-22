@@ -74,12 +74,12 @@ function can(string $permission, ...$arguments): bool {
 ```
 
 ### Route Filters
-Implement middleware or filters that use `AccessManager::authorize()` to guard routes.
+Implement middleware or filters that use `AccessManager::enforce()` to guard routes.
 
 ```php
 public function handle($request, Closure $next, $permission) {
     $vima = resolve(AccessManager::class);
-    $vima->authorize(auth()->user(), $permission);
+    $vima->enforce(auth()->user(), $permission);
     
     return $next($request);
 }

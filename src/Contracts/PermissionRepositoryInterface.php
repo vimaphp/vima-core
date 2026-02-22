@@ -61,4 +61,11 @@ interface PermissionRepositoryInterface
      * @return void
      */
     public function delete(Permission $permission): void;
+
+    /**
+     * Remove all permissions from storage.
+     *
+     * @return void
+     */
+    public function deleteAll(): void;
 }

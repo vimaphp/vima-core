@@ -58,7 +58,7 @@ it('returns true if user has permission', function () {
     /** @var \Vima\Core\Tests\ManagerTestCase $this */
 
     $user = new User(1);
-    $permission = $this->accessManager->addPermission(Permission::define("post.view"));
+    $permission = $this->accessManager->ensurePermission(Permission::define("post.view"));
 
     $role = Role::define(
         name: "admin",
@@ -67,11 +67,11 @@ it('returns true if user has permission', function () {
         ]
     );
 
-    $role = $this->accessManager->addRole($role);
+    $role = $this->accessManager->ensureRole($role);
 
-    $this->accessManager->grantRole($user, $role);
+    $this->accessManager->assignRole($user, $role);
 
-    $this->accessManager->authorize($user, 'post.view');
+    $this->accessManager->enforce($user, 'post.view');
 
     expect(true)->toBeTrue();
 });
@@ -81,29 +81,29 @@ it('returns false if user lacks permission', function () {
 
     $user = new User(2);
 
-    expect($this->accessManager->userHasPermission($user, 'posts.delete'))->toBeFalse();
+    expect($this->accessManager->isPermitted($user, 'posts.delete'))->toBeFalse();
 });
 
 it('throws AccessDeniedException when unauthorized', function () {
     /** @var \Vima\Core\Tests\ManagerTestCase $this */
 
     $user = new User(3);
-    $this->accessManager->authorize($user, 'users.delete');
+    $this->accessManager->enforce($user, 'users.delete');
 })->throws(AccessDeniedException::class);
 
 it('passes authorization if user has permission', function () {
     /** @var \Vima\Core\Tests\ManagerTestCase $this */
 
     /* $role = new Role('admin');
-    $role->addPermission(new Permission('users.delete'));
+    $role->ensurePermission(new Permission('users.delete'));
 
-    $this->accessManager->addRole($role);
+    $this->accessManager->ensureRole($role);
 
     $user = new User(4);
 
-    $this->accessManager->grantRole($user, $role);
+    $this->accessManager->assignRole($user, $role);
 
-    $this->accessManager->authorize($user, 'users.delete'); */
+    $this->accessManager->enforce($user, 'users.delete'); */
     expect(true)->toBeTrue();
 });
 
@@ -195,9 +195,9 @@ it('integrates RBAC permissions with ABAC policies', function () {
 
     // User has permission via role (RBAC)
     $user = new User(1);
-    $permission = $manager->addPermission(Permission::define("posts.edit"));
-    $role = $manager->addRole(Role::define("editor", [$permission]));
-    $manager->grantRole($user, $role);
+    $permission = $manager->ensurePermission(Permission::define("posts.edit"));
+    $role = $manager->ensureRole(Role::define("editor", [$permission]));
+    $manager->assignRole($user, $role);
 
     // But policy also exists for this resource (ABAC)
     class HybridPost

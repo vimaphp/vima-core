@@ -58,7 +58,7 @@ it('creates a role with permissions', function () {
     /* $role = $this->roleManager->create('editor');
 
     foreach ([new Permission('posts.create'), new Permission('posts.edit')] as $p) {
-        $role->addPermission($p);
+        $role->permit($p);
     }
 
     $this->roleManager->save($role);
@@ -71,8 +71,8 @@ it('creates a role with permissions', function () {
     $role = $this->roleManager->find("editor");
 
     expect($role)->toBeInstanceOf(Role::class)
-        ->and($role->hasPermission('posts.create'))->toBeTrue()
-        ->and($role->hasPermission('posts.edit'))->toBeTrue();
+        ->and($role->isPermitted('posts.create'))->toBeTrue()
+        ->and($role->isPermitted('posts.edit'))->toBeTrue();
 });
 
 it('finds role by name', function () {
@@ -81,12 +81,12 @@ it('finds role by name', function () {
     $this->roleManager->create('admin');
     $role = $this->roleManager->find('admin');
     $permission = new Permission('users.delete');
-    $role->addPermission($permission);
+    $role->permit($permission);
 
     $this->roleManager->save($role);
 
     expect($role)->toBeInstanceOf(Role::class)
-        ->and($role->hasPermission('users.delete'))->toBeTrue();
+        ->and($role->isPermitted('users.delete'))->toBeTrue();
 });
 
 it('throws exception if role not found', function () {

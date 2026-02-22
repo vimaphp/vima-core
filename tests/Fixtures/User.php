@@ -25,14 +25,14 @@ class User implements UserInterface
         return $this->roles;
     }
 
-    public function addRole(Role $role): void
+    public function ensureRole(Role $role): void
     {
         if (!in_array($role, $this->roles, true)) {
             $this->roles[] = $role;
         }
     }
 
-    public function removeRole(Role $role): void
+    public function detachRole(Role $role): void
     {
         $this->roles = array_filter(
             $this->roles,
@@ -40,11 +40,11 @@ class User implements UserInterface
         );
     }
 
-    public function hasPermission(string ...$permissions): bool
+    public function isPermitted(string ...$permissions): bool
     {
         foreach ($permissions as $p) {
             foreach ($this->roles as $r) {
-                if ($r->hasPermission($p)) {
+                if ($r->isPermitted($p)) {
                     return true;
                 }
             }

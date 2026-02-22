@@ -28,6 +28,7 @@ use Vima\Core\Entities\UserRole;
 use Vima\Core\Exceptions\AccessDeniedException;
 use Vima\Core\Exceptions\PermissionNotFoundException;
 use Vima\Core\Exceptions\PolicyNotFoundException;
+use Vima\Core\Exceptions\PolicyMethodNotFoundException;
 use Vima\Core\Exceptions\RoleNotFoundException;
 use function Vima\Core\resolve;
 
@@ -74,7 +75,7 @@ class AccessManager implements AccessManagerInterface
      * @param string|Permission $permission Permission name to check.
      * @return bool True if the user has the permission, false otherwise.
      */
-    public function userHasPermission(object $user, string|Permission $permission): bool
+    public function isPermitted(object $user, string|Permission $permission): bool
     {
         $id = $this->userResolver->resolveId($user);
         $permName = is_string($permission) ? $permission : $permission->name;
@@ -94,7 +95,7 @@ class AccessManager implements AccessManagerInterface
             }
         }
 
-        foreach ($this->permissionManager->getUserSpecificPermissions($id) as $perm) {
+        foreach ($this->permissionManager->getDirectPermissions($id) as $perm) {
             if ($permId !== null && $perm->id === $permId) {
                 return true;
             }
@@ -117,19 +118,17 @@ class AccessManager implements AccessManagerInterface
      */
     public function can(object|string $user, string $permission, ...$arguments): bool
     {
-        if (!$this->userHasPermission($user, $permission) && empty($arguments)) {
-            return false;
+        $hasRbac = $this->isPermitted($user, $permission);
+
+        if (empty($arguments)) {
+            return $hasRbac;
         }
 
-        if (!empty($arguments)) {
-            try {
-                return $this->evaluatePolicy($user, $permission, ...$arguments);
-            } catch (PolicyNotFoundException $e) {
-                return false;
-            }
+        try {
+            return $this->evaluatePolicy($user, $permission, ...$arguments);
+        } catch (PolicyNotFoundException | PolicyMethodNotFoundException $e) {
+            return $hasRbac;
         }
-
-        return true;
     }
 
     /**
@@ -140,10 +139,10 @@ class AccessManager implements AccessManagerInterface
      * @param mixed ...$arguments Optional arguments for policy evaluation.
      * @throws AccessDeniedException If authorization fails.
      */
-    public function authorize(object $user, string $permission, ...$arguments): void
+    public function enforce(object $user, string $permission, ...$arguments): void
     {
         if (!$this->can($user, $permission, ...$arguments)) {
-            throw new AccessDeniedException($user, $permission, $this->userResolver);
+            throw new AccessDeniedException($permission, $user, $this->userResolver);
         }
     }
 
@@ -155,6 +154,7 @@ class AccessManager implements AccessManagerInterface
      * @param mixed ...$arguments Context arguments passed to policy.
      * @return bool Result of policy evaluation.
      * @throws PolicyNotFoundException If policy for the action is missing.
+     * @throws PolicyMethodNotFoundException If the specific method is missing in the policy class.
      */
     public function evaluatePolicy(object $user, string $action, ...$arguments): bool
     {
@@ -172,7 +172,7 @@ class AccessManager implements AccessManagerInterface
      * @param string|null $description Optional description.
      * @return Role
      */
-    public function addRole(string|Role $role, ?string $description = null): Role
+    public function ensureRole(string|Role $role, ?string $description = null): Role
     {
         try {
             $newRole = $this->roleManager->find($role);
@@ -194,7 +194,7 @@ class AccessManager implements AccessManagerInterface
      * @param string|null $description Optional description.
      * @return Permission
      */
-    public function addPermission(string|Permission $permission, ?string $description = null): Permission
+    public function ensurePermission(string|Permission $permission, ?string $description = null): Permission
     {
         try {
             $newPerm = $this->permissionManager->find($permission);
@@ -264,7 +264,7 @@ class AccessManager implements AccessManagerInterface
      * @param string|Role $role Role name.
      * @return void
      */
-    public function grantRole(object $user, string|Role $role): void
+    public function assignRole(object $user, string|Role $role): void
     {
         $userId = $this->userResolver->resolveId($user);
 
@@ -292,7 +292,7 @@ class AccessManager implements AccessManagerInterface
      * @param string|Role $role Role name.
      * @return void
      */
-    public function revokeRole(object $user, string|Role $role): void
+    public function detachRole(object $user, string|Role $role): void
     {
         $userId = $this->userResolver->resolveId($user);
 
@@ -313,7 +313,7 @@ class AccessManager implements AccessManagerInterface
      * @param string|Role $role Role name.
      * @return bool True if user has the role, false otherwise.
      */
-    public function userHasRole(object $user, string|Role $role): bool
+    public function hasRole(object $user, string|Role $role): bool
     {
         $id = $this->userResolver->resolveId($user);
 
@@ -338,7 +338,7 @@ class AccessManager implements AccessManagerInterface
      * @param string|Permission $permission Permission name.
      * @return void
      */
-    public function grantPermission(object $user, string|Permission $permission): void
+    public function permit(object $user, string|Permission $permission): void
     {
         $userId = $this->userResolver->resolveId($user);
 
@@ -366,7 +366,7 @@ class AccessManager implements AccessManagerInterface
      * @param string|Permission $permission Permission name.
      * @return void
      */
-    public function revokePermission(object $user, string|Permission $permission): void
+    public function forbid(object $user, string|Permission $permission): void
     {
         $userId = $this->userResolver->resolveId($user);
 
@@ -407,32 +407,41 @@ class AccessManager implements AccessManagerInterface
     {
         $id = $this->userResolver->resolveId($user);
 
-        $userRoles = $this->roleManager->getUserRoles($id);
+        $userRoles = $this->roleManager->getUserRoles($id, true);
 
+        /**
+         * @var Permission[]
+         */
         $permissions = [];
 
         foreach ($userRoles as $r) {
             $permissions = array_merge($permissions, $r->permissions);
         }
 
-        return array_unique(array_merge(
+        $permissions = array_merge(
             $permissions,
-            $this->permissionManager->getUserSpecificPermissions($id)
-        ));
+            $this->permissionManager->getDirectPermissions($id)
+        );
+
+        // ensure they are unique
+        $names = array_map(fn($p) => $p->name, $permissions);
+        $unique = array_unique($names);
+
+        return array_filter($permissions, fn($p) => in_array($p->name, $unique));
     }
     /**
      * @inheritDoc
      */
-    public function getUserSpecificPermissions(object $user): array
+    public function getDirectPermissions(object $user): array
     {
         $id = $this->userResolver->resolveId($user);
-        return $this->permissionManager->getUserSpecificPermissions($id);
+        return $this->permissionManager->getDirectPermissions($id);
     }
 
     /**
      * @inheritDoc
      */
-    public function definePolicy(string $action, callable $callback): void
+    public function govern(string $action, callable $callback): void
     {
         $this->policies->register($action, $callback);
     }
@@ -448,7 +457,7 @@ class AccessManager implements AccessManagerInterface
     /**
      * @inheritDoc
      */
-    public function syncUserGrants(object $user, array $roles, ?array $permissions = null): void
+    public function reconcileAccess(object $user, array $roles, ?array $permissions = null): void
     {
         $user_id = $this->userResolver->resolveId($user);
 

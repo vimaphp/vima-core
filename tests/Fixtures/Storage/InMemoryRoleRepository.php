@@ -100,4 +100,10 @@ class InMemoryRoleRepository implements RoleRepositoryInterface
     {
         return $this->roles;
     }
+
+    public function deleteAll(): void
+    {
+        $this->roles = [];
+        $this->id = 0;
+    }
 }

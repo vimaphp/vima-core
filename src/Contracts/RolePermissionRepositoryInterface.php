@@ -40,4 +40,11 @@ interface RolePermissionRepositoryInterface
     public function assign(RolePermission $permission): void;
 
     public function revoke(RolePermission $permission): void;
+
+    /**
+     * Clear all role permissions.
+     *
+     * @return void
+     */
+    public function deleteAll(): void;
 }

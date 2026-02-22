@@ -80,14 +80,14 @@ class PermissionManager
      * @param int|string $user_id
      * @return Permission[]
      */
-    public function getUserSpecificPermissions(int|string $user_id): array
+    public function getDirectPermissions(int|string $user_id): array
     {
         $userPermissions = $this->userPermissions->findByUserId($user_id);
 
         $permissons = [];
 
         foreach ($userPermissions as $up) {
-            $permissons[] = $this->permissions->findById($up->permission_id);
+            $permissons[] = $this->permissions->findById($up->permissionId ?? $up->permission_id);
         }
 
         return array_filter($permissons);
