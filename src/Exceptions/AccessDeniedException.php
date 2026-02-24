@@ -11,7 +11,6 @@
 
 namespace Vima\Core\Exceptions;
 
-use Vima\Core\Config\VimaConfig;
 use Vima\Core\Services\UserResolver;
 
 /**
@@ -24,7 +23,7 @@ class AccessDeniedException extends VimaException
      * @param object|null $user
      * @param UserResolver|null $userResolver
      */
-    public function __construct(string $action = 'Unknown', ?object $user = null, ?UserResolver $userResolver = null)
+    public function __construct(string $action = 'Unknown', object|array|null $user = null, ?UserResolver $userResolver = null)
     {
         $id = ($user && $userResolver) ? $userResolver->resolveId($user) : "Unknown User";
 
@@ -33,8 +32,8 @@ class AccessDeniedException extends VimaException
         parent::__construct($msg);
     }
 
-    public static function forPermission(string $permission): self
+    public static function forPermission(string $permission, object|array|null $user = null, ?UserResolver $userResolver = null): self
     {
-        return new self($permission);
+        return new self($permission, $user, $userResolver);
     }
 }

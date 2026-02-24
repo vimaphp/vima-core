@@ -45,11 +45,15 @@ final class UserResolver
      * @return int|string
      * @throws UserResolutionException If the ID cannot be resolved.
      */
-    public function resolveId(object $user): int|string
+    public function resolveId(object|array $user): int|string
     {
         // 1. Custom resolver from config takes precedence
         if ($this->config?->userResolver !== null) {
             return ($this->config->userResolver)($user);
+        }
+
+        if(is_array($user)) {
+            throw new UserResolutionException("Use the Vima::userResolver property to provide a resolver for the user");
         }
 
         // 2. Fallback to standard methods
