@@ -17,6 +17,8 @@ use Vima\Core\Contracts\PermissionRepositoryInterface;
 use Vima\Core\Contracts\RolePermissionRepositoryInterface;
 use Vima\Core\Entities\Role;
 use Vima\Core\Entities\Permission;
+use Vima\Core\Entities\Sync\Skipped;
+use Vima\Core\Entities\Sync\SyncResponse;
 use Vima\Core\Services\ConfigResolver;
 
 /**
@@ -63,13 +65,16 @@ class SyncService
      * @param VimaConfig $config The system configuration.
      * @return void
      */
-    public function sync(VimaConfig $config): void
+    public function sync(VimaConfig $config): SyncResponse
     {
         if ($this->refresh) {
             $this->rolePermissions?->deleteAll();
             $this->roles->deleteAll();
             $this->permissions->deleteAll();
         }
+
+        $skippedRoles = [];
+        $skippedPermissions = [];
 
         // Validate & normalize using ConfigResolver
         $resolver = new ConfigResolver($config);
@@ -106,7 +111,7 @@ class SyncService
                 $permission = $this->permissions->findByName($permName) ?? new Permission($permName);
 
                 if (!$permission->id) {
-                    $this->permissions->save($permission);
+                    $skippedPermissions[$permName] = "Included for role $roleName but not defined in permssions"; 
                 }
 
                 $role->permit($permission);
@@ -114,5 +119,15 @@ class SyncService
 
             $this->roles->save($role);
         }
+
+        $shouldWarn = !empty($skippedPermissions) || !empty($skippedRoles);
+
+        return new SyncResponse(
+            new Skipped(
+                $skippedRoles,
+                $skippedPermissions
+            ),
+            $shouldWarn
+        );
     }
 }
