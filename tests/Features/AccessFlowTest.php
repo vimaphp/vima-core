@@ -126,21 +126,21 @@ test('admins can update posts', function () {
     /** @var \Vima\Core\Tests\AccessFlowTestCase $this */
 
     expect($this->manager->isPermitted($this->alice, 'posts.update'))->toBeTrue();
-    expect($this->manager->evaluatePolicy($this->alice, 'posts.update', $this->post))->toBeTrue();
+    expect($this->manager->evaluatePolicy($this->alice, 'posts.update', null, $this->post))->toBeTrue();
 });
 
 test('editors can update posts', function () {
     /** @var \Vima\Core\Tests\AccessFlowTestCase $this */
 
     expect($this->manager->isPermitted($this->bob, 'posts.update'))->toBeTrue();
-    expect($this->manager->evaluatePolicy($this->bob, 'posts.update', $this->post))->toBeTrue();
+    expect($this->manager->evaluatePolicy($this->bob, 'posts.update', null, $this->post))->toBeTrue();
 });
 
 test('viewers cannot update posts, even if owner', function () {
     /** @var \Vima\Core\Tests\AccessFlowTestCase $this */
 
     expect($this->manager->isPermitted($this->carol, 'posts.update'))->toBeFalse();
-    expect($this->manager->evaluatePolicy($this->carol, 'posts.update', $this->post))->toBeFalse();
+    expect($this->manager->evaluatePolicy($this->carol, 'posts.update', null, $this->post))->toBeFalse();
     $this->manager->enforce($this->carol, 'posts.update'); // should throw
 })->throws(AccessDeniedException::class);
 

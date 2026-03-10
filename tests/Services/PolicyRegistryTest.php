@@ -44,7 +44,7 @@ it('registers and evaluates a callback policy successfully', function () {
     $user = new User(1);
     $post = ['ownerId' => 1];
 
-    expect($registry->evaluate($user, 'posts.update', $post))->toBeTrue();
+    expect($registry->evaluate($user, 'posts.update', null, $post))->toBeTrue();
 });
 
 it('registers and evaluates a class-based policy successfully', function () {
@@ -54,9 +54,9 @@ it('registers and evaluates a class-based policy successfully', function () {
     $user = new User(1);
     $post = new TestPost(1);
 
-    expect($registry->evaluate($user, 'posts.update', $post))->toBeTrue();
-    expect($registry->evaluate($user, 'update', $post))->toBeTrue();
-    expect($registry->evaluate($user, 'posts.edit', $post))->toBeTrue();
+    expect($registry->evaluate($user, 'posts.update', null, $post))->toBeTrue();
+    expect($registry->evaluate($user, 'update', null, $post))->toBeTrue();
+    expect($registry->evaluate($user, 'posts.edit', null, $post))->toBeTrue();
 });
 
 it('enforces PolicyInterface during registration', function () {
@@ -69,7 +69,7 @@ it('throws exception if resource provided but no policy registered', function ()
     $user = new User(1);
     $post = new TestPost(1);
 
-    $registry->evaluate($user, 'posts.update', $post);
+    $registry->evaluate($user, 'posts.update', null, $post);
 })->throws(\Exception::class, "No policy class registered for resource: TestPost");
 
 it('returns false if user does not satisfy policy', function () {
@@ -79,7 +79,7 @@ it('returns false if user does not satisfy policy', function () {
     $user = new User(2);
     $post = ['ownerId' => 1];
 
-    expect($registry->evaluate($user, 'posts.update', $post))->toBeFalse();
+    expect($registry->evaluate($user, 'posts.update', null, $post))->toBeFalse();
 });
 
 it('returns false if policy is not found (no resource provided)', function () {
@@ -97,7 +97,7 @@ it('can define policies statically with one rule', function () {
     $user = new User(1);
     $post = ['ownerId' => 1];
 
-    expect($registry->evaluate($user, 'posts.update', $post))->toBeTrue();
+    expect($registry->evaluate($user, 'posts.update', null, $post))->toBeTrue();
 });
 
 it('passes multiple arguments correctly to policy methods', function () {
@@ -119,6 +119,6 @@ it('passes multiple arguments correctly to policy methods', function () {
     $user = new User(1);
     $post = new TestPost(1);
 
-    expect($registry->evaluate($user, 'approve', $post, true))->toBeTrue();
-    expect($registry->evaluate($user, 'approve', $post, false))->toBeFalse();
+    expect($registry->evaluate($user, 'approve', null, $post, true))->toBeTrue();
+    expect($registry->evaluate($user, 'approve', null, $post, false))->toBeFalse();
 });

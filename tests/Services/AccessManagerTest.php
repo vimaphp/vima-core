@@ -111,7 +111,7 @@ it('throws exception for policy evaluation when no policy is registered', functi
     /** @var \Vima\Core\Tests\ManagerTestCase $this */
     $user = new User(5);
     expect(fn() => $this->accessManager
-        ->evaluatePolicy($user, 'update', new stdClass()))
+        ->evaluatePolicy($user, 'update', null, new stdClass()))
         ->toThrow(\Exception::class);
 });
 
@@ -150,7 +150,7 @@ it('delegates policy evaluation to registry', function () {
     $user = new User(1);
     $post = ['ownerId' => 1];
 
-    expect($manager->evaluatePolicy($user, 'posts.update', $post))->toBeTrue();
+    expect($manager->evaluatePolicy($user, 'posts.update', null, $post))->toBeTrue();
 });
 
 it('supports class-based policy registration and evaluation', function () {
