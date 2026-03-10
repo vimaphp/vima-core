@@ -47,9 +47,9 @@ class RoleManager
      * @param string|null $description Optional description.
      * @return Role
      */
-    public function create(string|Role $name, ?string $description = null): Role
+    public function create(string|Role $name, ?string $description = null, ?string $namespace = null): Role
     {
-        $role = $name instanceof Role ? $name : new Role(name: $name);
+        $role = $name instanceof Role ? $name : new Role(name: $name, namespace: $namespace);
 
         $role->description = $description;
 
@@ -63,14 +63,15 @@ class RoleManager
      * @return Role|null
      * @throws RoleNotFoundException
      */
-    public function find(string|Role $role): ?Role
+    public function find(string|Role $role, ?string $namespace = null): ?Role
     {
         $name = is_string($role) ? $role : $role->name;
         $id = !is_string($role) ? $role->id : null;
+        $roleNamespace = !is_string($role) ? $role->namespace : $namespace;
 
         $role = $id
             ? $this->roles->findById($id)
-            : $this->roles->findByName($name);
+            : $this->roles->findByName($name, $roleNamespace);
 
         if (!$role) {
             throw new RoleNotFoundException($name);
@@ -154,5 +155,15 @@ class RoleManager
         $role->permissions = $this->rolePermissions->getRolePermissions($role);
 
         return $role;
+    }
+
+    /**
+     * Retrieve all roles.
+     *
+     * @return Role[]
+     */
+    public function all(?string $namespace = null): array
+    {
+        return $this->roles->all($namespace);
     }
 }

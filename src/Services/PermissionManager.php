@@ -42,9 +42,9 @@ class PermissionManager
      * @param string|null $description Optional description.
      * @return Permission
      */
-    public function create(string|Permission $name, ?string $description = null): Permission
+    public function create(string|Permission $name, ?string $description = null, ?string $namespace = null): Permission
     {
-        $permission = $name instanceof Permission ? $name : new Permission($name);
+        $permission = $name instanceof Permission ? $name : new Permission($name, namespace: $namespace);
 
         $permission->description = $description;
 
@@ -58,14 +58,15 @@ class PermissionManager
      * @return Permission|null
      * @throws PermissionNotFoundException
      */
-    public function find(string|Permission $permission): ?Permission
+    public function find(string|Permission $permission, ?string $namespace = null): ?Permission
     {
         $name = is_string($permission) ? $permission : $permission->name;
         $id = !is_string($permission) ? $permission->id : null;
+        $permNamespace = !is_string($permission) ? $permission->namespace : $namespace;
 
         $permission = $id
             ? $this->permissions->findById($id)
-            : $this->permissions->findByName($name);
+            : $this->permissions->findByName($name, $permNamespace);
 
         if (!$permission) {
             throw new PermissionNotFoundException("Permission with the name [$name] not found");
@@ -113,5 +114,15 @@ class PermissionManager
     public function save(Permission $permission): Permission
     {
         return $this->permissions->save($permission);
+    }
+
+    /**
+     * Retrieve all permissions.
+     *
+     * @return Permission[]
+     */
+    public function all(?string $namespace = null): array
+    {
+        return $this->permissions->all($namespace);
     }
 }

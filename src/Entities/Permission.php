@@ -13,6 +13,9 @@ declare(strict_types=1);
 
 namespace Vima\Core\Entities;
 
+use Vima\Core\Contracts\AccessManagerInterface;
+use function Vima\Core\resolve;
+
 /**
  * Class Permission
  * 
@@ -31,6 +34,7 @@ class Permission
      */
     public function __construct(
         public string $name,
+        public ?string $namespace = null,
         public ?string $description = null,
         public int|string|null $id = null,
     ) {
@@ -43,8 +47,20 @@ class Permission
      * @param string|null $description
      * @return self
      */
-    public static function define(string $name, ?string $description = null): self
+    public static function define(string $name, ?string $description = null, ?string $namespace = null): self
     {
-        return new self(name: $name, description: $description);
+        return new self(name: $name, namespace: $namespace, description: $description);
+    }
+
+    /**
+     * Persist this permission via the AccessManager.
+     *
+     * @return Permission
+     */
+    public function save(): self
+    {
+        /** @var \Vima\Core\Contracts\AccessManagerInterface */
+        $manager = resolve(AccessManagerInterface::class);
+        return $manager->updatePermission($this);
     }
 }

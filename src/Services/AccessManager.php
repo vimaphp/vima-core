@@ -75,21 +75,35 @@ class AccessManager implements AccessManagerInterface
      * @param string|Permission $permission Permission name to check.
      * @return bool True if the user has the permission, false otherwise.
      */
-    public function isPermitted(object $user, string|Permission $permission): bool
+    public function isPermitted(object $user, string|Permission $permission, array $context = [], ?string $namespace = null): bool
     {
         $id = $this->userResolver->resolveId($user);
         $permName = is_string($permission) ? $permission : $permission->name;
         $permId = !is_string($permission) ? $permission->id : null;
 
+        // Use provided namespace or fallback to the permission object's namespace
+        $permNamespace = is_string($permission) ? $namespace : $permission->namespace;
+
         $roles = $this->roleManager->getUserRoles($id, true);
 
+        if (!empty($context)) {
+            $roles = array_filter($roles, function ($r) use ($context) {
+                foreach ($context as $k => $v) {
+                    if (!isset($r->context[$k]) || $r->context[$k] != $v) {
+                        return false;
+                    }
+                }
+                return true;
+            });
+        }
+
         foreach ($roles as $role) {
-            foreach ($role->permissions as $perm) {
+            foreach ($role->getAllPermissions() as $perm) {
                 if ($permId !== null && $perm->id === $permId) {
                     return true;
                 }
 
-                if ($perm->name === $permName) {
+                if ($perm->name === $permName && ($permNamespace === null || $perm->namespace === $permNamespace)) {
                     return true;
                 }
             }
@@ -100,7 +114,7 @@ class AccessManager implements AccessManagerInterface
                 return true;
             }
 
-            if ($perm->name === $permName) {
+            if ($perm->name === $permName && ($permNamespace === null || $perm->namespace === $permNamespace)) {
                 return true;
             }
         }
@@ -116,9 +130,9 @@ class AccessManager implements AccessManagerInterface
      * @param mixed ...$arguments Optional arguments for policy evaluation.
      * @return bool True if authorized, false otherwise.
      */
-    public function can(object|string $user, string $permission, ...$arguments): bool
+    public function can(object|string $user, string $permission, ?string $namespace = null, ...$arguments): bool
     {
-        $hasRbac = $this->isPermitted($user, $permission);
+        $hasRbac = $this->isPermitted($user, $permission, [], $namespace);
 
         if (empty($arguments)) {
             return $hasRbac;
@@ -139,9 +153,9 @@ class AccessManager implements AccessManagerInterface
      * @param mixed ...$arguments Optional arguments for policy evaluation.
      * @throws AccessDeniedException If authorization fails.
      */
-    public function enforce(object $user, string $permission, ...$arguments): void
+    public function enforce(object $user, string $permission, ?string $namespace = null, ...$arguments): void
     {
-        if (!$this->can($user, $permission, ...$arguments)) {
+        if (!$this->can($user, $permission, $namespace, ...$arguments)) {
             throw new AccessDeniedException($permission, $user, $this->userResolver);
         }
     }
@@ -172,16 +186,16 @@ class AccessManager implements AccessManagerInterface
      * @param string|null $description Optional description.
      * @return Role
      */
-    public function ensureRole(string|Role $role, ?string $description = null): Role
+    public function ensureRole(string|Role $role, ?string $description = null, ?string $namespace = null): Role
     {
         try {
-            $newRole = $this->roleManager->find($role);
+            $newRole = $this->roleManager->find($role, $namespace);
         } catch (RoleNotFoundException $e) {
             $newRole = null;
         }
 
         if (!$newRole) {
-            $newRole = $this->roleManager->create($role, $description);
+            $newRole = $this->roleManager->create($role, $description, $namespace);
         }
 
         return $newRole;
@@ -194,16 +208,16 @@ class AccessManager implements AccessManagerInterface
      * @param string|null $description Optional description.
      * @return Permission
      */
-    public function ensurePermission(string|Permission $permission, ?string $description = null): Permission
+    public function ensurePermission(string|Permission $permission, ?string $description = null, ?string $namespace = null): Permission
     {
         try {
-            $newPerm = $this->permissionManager->find($permission);
+            $newPerm = $this->permissionManager->find($permission, $namespace);
         } catch (PermissionNotFoundException $e) {
             $newPerm = null;
         }
 
         if (!$newPerm) {
-            $newPerm = $this->permissionManager->create($permission, $description);
+            $newPerm = $this->permissionManager->create($permission, $description, $namespace);
         }
 
         return $newPerm;
@@ -232,15 +246,23 @@ class AccessManager implements AccessManagerInterface
     }
 
     /**
+     * @inheritDoc
+     */
+    public function deleteRole(Role $role): void
+    {
+        $this->roleManager->delete($role);
+    }
+
+    /**
      * Get a role by name.
      *
      * @param string $name
      * @return Role|null
      */
-    public function getRole(string $name): ?Role
+    public function getRole(string $name, ?string $namespace = null): ?Role
     {
         try {
-            return $this->roleManager->find($name);
+            return $this->roleManager->find($name, $namespace);
         } catch (\Throwable $e) {
             return null;
         }
@@ -252,9 +274,9 @@ class AccessManager implements AccessManagerInterface
      * @param string $name
      * @return Permission|null
      */
-    public function getPermission(string $name): ?Permission
+    public function getPermission(string $name, ?string $namespace = null): ?Permission
     {
-        return $this->permissionManager->find($name);
+        return $this->permissionManager->find($name, $namespace);
     }
 
     /**
@@ -268,16 +290,20 @@ class AccessManager implements AccessManagerInterface
     {
         $userId = $this->userResolver->resolveId($user);
 
-        // check for role by name
-        try {
-            $roleRecord = $this->roleManager->find($role);
-        } catch (RoleNotFoundException $e) {
-            $roleRecord = null;
-        }
+        if ($role instanceof Role && $role->id !== null) {
+            $roleRecord = $role;
+        } else {
+            // check for role by name
+            try {
+                $roleRecord = $this->roleManager->find($role);
+            } catch (RoleNotFoundException $e) {
+                $roleRecord = null;
+            }
 
-        // create role if it does not exist
-        if (!$roleRecord) {
-            $roleRecord = $this->roleManager->create($role);
+            // create role if it does not exist
+            if (!$roleRecord) {
+                $roleRecord = $this->roleManager->create($role);
+            }
         }
 
         $userRole = UserRole::define($userId, $roleRecord->id);
@@ -311,20 +337,36 @@ class AccessManager implements AccessManagerInterface
      *
      * @param object $user User object.
      * @param string|Role $role Role name.
+     * @param array $context optional context filter
      * @return bool True if user has the role, false otherwise.
      */
-    public function hasRole(object $user, string|Role $role): bool
+    public function hasRole(object $user, string|Role $role, array $context = []): bool
     {
         $id = $this->userResolver->resolveId($user);
 
-        $userRoles = $this->roleManager->getUserRoles($id);
+        $userRoles = $this->roleManager->getUserRoles($id, false);
 
         foreach ($userRoles as $r) {
             $name = is_string($role) ? $role : $role->name;
 
-            if ($r->name === $name) {
-                return true;
+            if ($r->name !== $name) {
+                continue;
             }
+
+            if (!empty($context)) {
+                $matches = true;
+                foreach ($context as $k => $v) {
+                    if (!isset($r->context[$k]) || $r->context[$k] != $v) {
+                        $matches = false;
+                        break;
+                    }
+                }
+                if (!$matches) {
+                    continue;
+                }
+            }
+
+            return true;
         }
 
         return false;
@@ -401,13 +443,25 @@ class AccessManager implements AccessManagerInterface
      * Get all permissions assigned to a user (via roles and directly).
      *
      * @param object $user User object.
+     * @param array $context context
      * @return Permission[] List of Permission entities.
      */
-    public function getUserPermissions(object $user): array
+    public function getUserPermissions(object $user, array $context = []): array
     {
         $id = $this->userResolver->resolveId($user);
 
         $userRoles = $this->roleManager->getUserRoles($id, true);
+
+        if (!empty($context)) {
+            $userRoles = array_filter($userRoles, function ($r) use ($context) {
+                foreach ($context as $k => $v) {
+                    if (!isset($r->context[$k]) || $r->context[$k] != $v) {
+                        return false;
+                    }
+                }
+                return true;
+            });
+        }
 
         /**
          * @var Permission[]
@@ -415,7 +469,7 @@ class AccessManager implements AccessManagerInterface
         $permissions = [];
 
         foreach ($userRoles as $r) {
-            $permissions = array_merge($permissions, $r->permissions);
+            $permissions = array_merge($permissions, $r->getAllPermissions());
         }
 
         $permissions = array_merge(
@@ -444,6 +498,22 @@ class AccessManager implements AccessManagerInterface
     public function govern(string $action, callable $callback): void
     {
         $this->policies->register($action, $callback);
+    }
+
+    /**
+     * @inheritDoc
+     */
+    public function getRoles(?string $namespace = null): array
+    {
+        return $this->roleManager->all($namespace);
+    }
+
+    /**
+     * @inheritDoc
+     */
+    public function getPermissions(?string $namespace = null): array
+    {
+        return $this->permissionManager->all($namespace);
     }
 
     /**

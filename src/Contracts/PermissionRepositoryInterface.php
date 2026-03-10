@@ -24,12 +24,13 @@ use Vima\Core\Entities\Permission;
 interface PermissionRepositoryInterface
 {
     /**
-     * Find a permission by its unique name.
+     * Find a permission by its unique name, optionally within a namespace.
      *
      * @param string $name
+     * @param string|null $namespace
      * @return Permission|null
      */
-    public function findByName(string $name): ?Permission;
+    public function findByName(string $name, ?string $namespace = null): ?Permission;
 
     /**
      * Find a permission by its unique identifier.
@@ -40,11 +41,12 @@ interface PermissionRepositoryInterface
     public function findById(int|string $id): ?Permission;
 
     /**
-     * Retrieve all permissions.
+     * Retrieve all permissions, optionally filtered by namespace.
      * 
+     * @param string|null $namespace
      * @return Permission[]
      */
-    public function all(): array;
+    public function all(?string $namespace = null): array;
 
     /**
      * Persist or update a permission.

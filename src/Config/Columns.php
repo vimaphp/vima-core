@@ -31,6 +31,8 @@ final class RoleColumns
         public string $id = 'id',
         public string $name = 'name',
         public ?string $description = 'description',
+        public ?string $namespace = 'namespace',
+        public ?string $context = 'context',
     ) {
     }
 }
@@ -41,6 +43,7 @@ final class PermissionColumns
         public string $id = 'id',
         public string $name = 'name',
         public ?string $description = 'description',
+        public ?string $namespace = 'namespace',
     ) {
     }
 }

@@ -24,12 +24,13 @@ use Vima\Core\Entities\Role;
 interface RoleRepositoryInterface
 {
     /**
-     * Find a role by its unique name.
+     * Find a role by its unique name, optionally within a namespace.
      *
      * @param string $name
+     * @param string|null $namespace
      * @return Role|null
      */
-    public function findByName(string $name): ?Role;
+    public function findByName(string $name, ?string $namespace = null): ?Role;
 
     /**
      * Find a role by its unique identifier.
@@ -41,11 +42,12 @@ interface RoleRepositoryInterface
     public function findById(int|string $id, bool $resolve = false): ?Role;
 
     /**
-     * Retrieve all roles.
+     * Retrieve all roles, optionally filtered by namespace.
      * 
+     * @param string|null $namespace
      * @return Role[]
      */
-    public function all(): array;
+    public function all(?string $namespace = null): array;
 
     /**
      * Persist or update a role.
@@ -69,4 +71,20 @@ interface RoleRepositoryInterface
      * @return void
      */
     public function deleteAll(): void;
+
+    /**
+     * Retrieve all parent roles for a given role.
+     *
+     * @param Role $role
+     * @return Role[]
+     */
+    public function getParents(Role $role): array;
+
+    /**
+     * Retrieve all child roles for a given role.
+     *
+     * @param Role $role
+     * @return Role[]
+     */
+    public function getChildren(Role $role): array;
 }

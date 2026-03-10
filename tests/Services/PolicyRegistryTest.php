@@ -70,7 +70,7 @@ it('throws exception if resource provided but no policy registered', function ()
     $post = new TestPost(1);
 
     $registry->evaluate($user, 'posts.update', $post);
-})->throws(\Exception::class, "No policy registered for resource class: TestPost");
+})->throws(\Exception::class, "No policy class registered for resource: TestPost");
 
 it('returns false if user does not satisfy policy', function () {
     $registry = new PolicyRegistry();

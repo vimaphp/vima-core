@@ -12,9 +12,10 @@ class InMemoryPermissionRepository implements PermissionRepositoryInterface
 
     private int $id = 0;
 
-    public function findByName(string $name): ?Permission
+    public function findByName(string $name, ?string $namespace = null): ?Permission
     {
-        return $this->permissions[$name] ?? null;
+        $key = $namespace . ':' . $name;
+        return $this->permissions[$key] ?? null;
     }
     public function findById(int|string $id): ?Permission
     {
@@ -38,19 +39,25 @@ class InMemoryPermissionRepository implements PermissionRepositoryInterface
             $this->id++;
         }
 
-        $this->permissions[$permission->name] = $permission;
+        $key = $permission->namespace . ':' . $permission->name;
+        $this->permissions[$key] = $permission;
 
         return $permission;
     }
 
     public function delete(Permission $permission): void
     {
-        unset($this->permissions[$permission->name]);
+        $key = $permission->namespace . ':' . $permission->name;
+        unset($this->permissions[$key]);
     }
 
-    public function all(): array
+    public function all(?string $namespace = null): array
     {
-        return $this->permissions;
+        if ($namespace === null) {
+            return array_values($this->permissions);
+        }
+
+        return array_values(array_filter($this->permissions, fn($p) => $p->namespace === $namespace));
     }
 
     public function deleteAll(): void

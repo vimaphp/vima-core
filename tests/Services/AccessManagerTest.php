@@ -182,11 +182,11 @@ it('supports class-based policy registration and evaluation', function () {
     $user = new User(1);
     $post = new AccessTestPost(1);
 
-    expect($manager->can($user, 'posts.update', $post))->toBeTrue();
-    expect($manager->can($user, 'update', $post))->toBeTrue();
+    expect($manager->can($user, 'posts.update', null, $post))->toBeTrue();
+    expect($manager->can($user, 'update', null, $post))->toBeTrue();
 
     $otherUser = new User(2);
-    expect($manager->can($otherUser, 'posts.update', $post))->toBeFalse();
+    expect($manager->can($otherUser, 'posts.update', null, $post))->toBeFalse();
 });
 
 it('integrates RBAC permissions with ABAC policies', function () {
@@ -225,10 +225,10 @@ it('integrates RBAC permissions with ABAC policies', function () {
     $otherPost = new HybridPost(2);
 
     // Should be able to edit own post (RBAC + ABAC passes)
-    expect($manager->can($user, 'posts.edit', $ownPost))->toBeTrue();
+    expect($manager->can($user, 'posts.edit', null, $ownPost))->toBeTrue();
 
     // Should NOT be able to edit other post (RBAC passes, but ABAC fails)
-    expect($manager->can($user, 'posts.edit', $otherPost))->toBeFalse();
+    expect($manager->can($user, 'posts.edit', null, $otherPost))->toBeFalse();
 });
 
 it('throws exception if registry has no matching policy', function () {
@@ -267,3 +267,78 @@ it('throws exception if registry has no matching policy', function () {
 
     expect($manager->evaluatePolicy($user, 'posts.update', new stdClass()))->toBeFalse(); */
 })/* ->throws(PolicyNotFoundException::class, 'No policy registered for permission: posts.update') */ ;
+
+it('retrieves all roles and permissions', function () {
+    /** @var \Vima\Core\Tests\ManagerTestCase $this */
+    $manager = new AccessManager();
+
+    $manager->ensurePermission('perm.1');
+    $manager->ensurePermission('perm.2');
+    $manager->ensureRole('role.1');
+    $manager->ensureRole('role.2');
+
+    $roles = $manager->getRoles();
+    $permissions = $manager->getPermissions();
+
+    expect($roles)->toHaveCount(2);
+    expect($permissions)->toHaveCount(2);
+
+    $roleNames = array_map(fn($r) => $r->name, $roles);
+    $permNames = array_map(fn($p) => $p->name, $permissions);
+
+    expect($roleNames)->toContain('role.1', 'role.2');
+    expect($permNames)->toContain('perm.1', 'perm.2');
+});
+
+it('supports role inheritance', function () {
+    /** @var \Vima\Core\Tests\ManagerTestCase $this */
+    $manager = new AccessManager();
+
+    $p1 = $manager->ensurePermission('edit.posts');
+    $p2 = $manager->ensurePermission('delete.posts');
+
+    $role1 = Role::define('editor', [$p1]);
+    $role2 = Role::define('admin', [$p2]);
+
+    $parentRole = $manager->ensureRole($role1);
+    $childRole = $manager->ensureRole($role2);
+
+    // admin inherits from editor
+    $childRole->inherit($parentRole);
+
+    $user = new User(1);
+    $manager->assignRole($user, $childRole);
+
+    // user should have admin's permission
+    expect($manager->isPermitted($user, 'delete.posts'))->toBeTrue();
+    // user should also have editor's permission (inherited)
+    expect($manager->isPermitted($user, 'edit.posts'))->toBeTrue();
+
+    // Verify all permissions
+    $allPerms = $manager->getUserPermissions($user);
+    $names = array_map(fn($p) => $p->name, $allPerms);
+    expect($names)->toContain('edit.posts', 'delete.posts');
+});
+
+it('supports role context', function () {
+    /** @var \Vima\Core\Tests\ManagerTestCase $this */
+    $manager = new AccessManager();
+
+    $p1 = $manager->ensurePermission('project.view');
+
+    $role = $manager->ensureRole(Role::define('member', [$p1], context: ['project_id' => 101]));
+
+    $user = new User(1);
+
+    // Assign role for Project 101 only
+    $manager->assignRole($user, $role);
+
+    // Should have permission for Project 101
+    expect($manager->isPermitted($user, 'project.view', ['project_id' => 101]))->toBeTrue();
+
+    // Should NOT have permission for Project 102
+    expect($manager->isPermitted($user, 'project.view', ['project_id' => 102]))->toBeFalse();
+
+    // With no context filter, it should return all assigned roles (default behavior in InMemory repo)
+    expect($manager->isPermitted($user, 'project.view'))->toBeTrue();
+});

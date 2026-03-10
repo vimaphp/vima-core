@@ -49,9 +49,10 @@ class InMemoryRoleRepository implements RoleRepositoryInterface
         return $role;
     }
 
-    public function findByName(string $name): ?Role
+    public function findByName(string $name, ?string $namespace = null): ?Role
     {
-        return $this->roles[$name] ?? null;
+        $key = $namespace . ':' . $name;
+        return $this->roles[$key] ?? null;
     }
 
     public function save(Role $role): Role
@@ -62,7 +63,8 @@ class InMemoryRoleRepository implements RoleRepositoryInterface
             $this->id++;
         }
 
-        $this->roles[$role->name] = $role;
+        $key = $role->namespace . ':' . $role->name;
+        $this->roles[$key] = $role;
 
         // get role permission memory storage
         $rpMemory = resolve(RolePermissionRepositoryInterface::class);
@@ -71,7 +73,7 @@ class InMemoryRoleRepository implements RoleRepositoryInterface
         // add permssions to the role permission memory storage
         $i = 0;
         foreach ($role->permissions as $pm) {
-            $permission = $pmMemory->findByName($pm->name);
+            $permission = $pmMemory->findByName($pm->name, $pm->namespace);
 
             if (!$permission) {
                 $permission = $pmMemory->save($pm);
@@ -93,17 +95,41 @@ class InMemoryRoleRepository implements RoleRepositoryInterface
 
     public function delete(Role $role): void
     {
-        unset($this->roles[$role->name]);
+        $key = $role->namespace . ':' . $role->name;
+        unset($this->roles[$key]);
     }
 
-    public function all(): array
+    public function all(?string $namespace = null): array
     {
-        return $this->roles;
+        if ($namespace === null) {
+            return array_values($this->roles);
+        }
+
+        return array_values(array_filter($this->roles, fn($role) => $role->namespace === $namespace));
     }
 
     public function deleteAll(): void
     {
         $this->roles = [];
         $this->id = 0;
+    }
+
+    public function getParents(Role $role): array
+    {
+        return $role->parents;
+    }
+
+    public function getChildren(Role $role): array
+    {
+        $children = [];
+        foreach ($this->roles as $r) {
+            foreach ($r->parents as $parent) {
+                if ($parent->name === $role->name) {
+                    $children[] = $r;
+                    break;
+                }
+            }
+        }
+        return $children;
     }
 }

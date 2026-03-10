@@ -147,19 +147,19 @@ test('viewers cannot update posts, even if owner', function () {
 test('admins can update posts using can', function () {
     /** @var \Vima\Core\Tests\AccessFlowTestCase $this */
 
-    expect($this->manager->can($this->alice, 'posts.update', $this->post))->toBeTrue();
+    expect($this->manager->can($this->alice, 'posts.update', null, $this->post))->toBeTrue();
 });
 
 test('editors can update posts using can', function () {
     /** @var \Vima\Core\Tests\AccessFlowTestCase $this */
 
-    expect($this->manager->can($this->bob, 'posts.update', $this->post))->toBeTrue();
+    expect($this->manager->can($this->bob, 'posts.update', null, $this->post))->toBeTrue();
 });
 
 test('viewers cannot update posts using can', function () {
     /** @var \Vima\Core\Tests\AccessFlowTestCase $this */
 
-    expect($this->manager->can($this->carol, 'posts.update', $this->post))->toBeFalse();
+    expect($this->manager->can($this->carol, 'posts.update', null, $this->post))->toBeFalse();
 });
 
 test('viewers can view posts using can', function () {
@@ -173,5 +173,5 @@ test('viewers can view posts using can', function () {
 test('returns false when user lacks permission even if policy exists', function () {
     /** @var \Vima\Core\Tests\AccessFlowTestCase $this */
 
-    expect($this->manager->can($this->carol, 'posts.update', $this->post))->toBeFalse();
+    expect($this->manager->can($this->carol, 'posts.update', null, $this->post))->toBeFalse();
 });

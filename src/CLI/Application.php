@@ -19,6 +19,7 @@ use Vima\Core\CLI\Commands\ListRolesCommand;
 use Vima\Core\CLI\Commands\AssignRoleCommand;
 use Vima\Core\CLI\Commands\RevokeRoleCommand;
 use Vima\Core\CLI\Commands\GrantPermissionCommand;
+use Vima\Core\CLI\Commands\GenerateTsCommand;
 
 class Application extends ConsoleApp
 {
@@ -34,6 +35,7 @@ class Application extends ConsoleApp
             new AssignRoleCommand(),
             new RevokeRoleCommand(),
             new GrantPermissionCommand(),
+            new GenerateTsCommand(),
         ]);
     }
 }

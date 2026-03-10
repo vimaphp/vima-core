@@ -21,9 +21,8 @@ interface UserRoleRepositoryInterface
      * Returns role associated with the user
      * 
      * @param int|string $user_id
-     * @param bool $resolve Whether to resolve the permssions for the roles too
-     * 
-     * @return Role[] role names 
+     * @param bool $resolve Whether to resolve the permissions for the roles too
+     * @return Role[]
      */
     public function getRolesForUser(int|string $user_id, bool $resolve = false): array;
 

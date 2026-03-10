@@ -30,9 +30,11 @@ interface AccessManagerInterface
      *
      * @param object $user The user object to check.
      * @param string $permission The permission name.
+     * @param array $context Optional context for the check (e.g. project ID).
+     * @param string|null $namespace Optional namespace scope.
      * @return bool
      */
-    public function isPermitted(object $user, string $permission): bool;
+    public function isPermitted(object $user, string $permission, array $context = [], ?string $namespace = null): bool;
 
     /**
      * Authorize the given user for a specific permission.
@@ -40,10 +42,11 @@ interface AccessManagerInterface
      *
      * @param object $user The user object.
      * @param string $permission The permission name.
+     * @param string|null $namespace Optional namespace scope.
      * @param mixed ...$arguments Optional context arguments for policy evaluation.
      * @throws \Vima\Core\Exceptions\AccessDeniedException If authorization fails.
      */
-    public function enforce(object $user, string $permission, ...$arguments): void;
+    public function enforce(object $user, string $permission, ?string $namespace = null, ...$arguments): void;
 
     /**
      * Evaluate a fine-grained policy (ABAC) for a given action.
@@ -61,28 +64,31 @@ interface AccessManagerInterface
      *
      * @param object $user The user object.
      * @param string $permission The permission or ability name.
+     * @param string|null $namespace Optional namespace scope.
      * @param mixed ...$arguments Optional arguments for policy evaluation.
      * @return bool
      */
-    public function can(object $user, string $permission, ...$arguments): bool;
+    public function can(object $user, string $permission, ?string $namespace = null, ...$arguments): bool;
 
     /**
      * Create or retrieve a role by name.
      *
      * @param string|Role $role The role name or entity.
      * @param string|null $description Optional role description.
+     * @param string|null $namespace Optional namespace.
      * @return Role
      */
-    public function ensureRole(string|Role $role, ?string $description = null): Role;
+    public function ensureRole(string|Role $role, ?string $description = null, ?string $namespace = null): Role;
 
     /**
      * Create or retrieve a permission by name.
      *
      * @param string|Permission $permission The permission name or entity.
      * @param string|null $description Optional permission description.
+     * @param string|null $namespace Optional namespace.
      * @return Permission
      */
-    public function ensurePermission(string|Permission $permission, ?string $description = null): Permission;
+    public function ensurePermission(string|Permission $permission, ?string $description = null, ?string $namespace = null): Permission;
 
     /**
      * Save an existing role's changes to persistent storage.
@@ -101,20 +107,30 @@ interface AccessManagerInterface
     public function updatePermission(Permission $permission): Permission;
 
     /**
+     * Delete a role.
+     *
+     * @param Role $role
+     * @return void
+     */
+    public function deleteRole(Role $role): void;
+
+    /**
      * Retrieve a role by its unique name.
      *
      * @param string $name The role name.
+     * @param string|null $namespace
      * @return Role|null
      */
-    public function getRole(string $name): ?Role;
+    public function getRole(string $name, ?string $namespace = null): ?Role;
 
     /**
      * Retrieve a permission by its unique name.
      *
      * @param string $name The permission name.
+     * @param string|null $namespace
      * @return Permission|null
      */
-    public function getPermission(string $name): ?Permission;
+    public function getPermission(string $name, ?string $namespace = null): ?Permission;
 
     /**
      * Grant a role to a user.
@@ -137,9 +153,10 @@ interface AccessManagerInterface
      *
      * @param object $user The user object.
      * @param string|Role $role The role name or entity.
+     * @param array $context Optional context filter.
      * @return bool
      */
-    public function hasRole(object $user, string|Role $role): bool;
+    public function hasRole(object $user, string|Role $role, array $context = []): bool;
 
     /**
      * Grant a direct permission to a user (not through a role).
@@ -161,17 +178,19 @@ interface AccessManagerInterface
      * Retrieve all roles assigned to the given user.
      *
      * @param object $user The user object.
+     * @param bool $resolve Whether to resolve permissions.
      * @return Role[]
      */
-    public function getUserRoles(object $user): array;
+    public function getUserRoles(object $user, bool $resolve = false): array;
 
     /**
      * Retrieve all permissions (direct and role-based) assigned to the user.
      *
      * @param object $user The user object.
+     * @param array $context Optional context filter.
      * @return Permission[]
      */
-    public function getUserPermissions(object $user): array;
+    public function getUserPermissions(object $user, array $context = []): array;
 
     /**
      * Retrieve ONLY direct/user-specific permissions (not through roles).
@@ -180,6 +199,22 @@ interface AccessManagerInterface
      * @return Permission[]
      */
     public function getDirectPermissions(object $user): array;
+
+    /**
+     * Retrieve all defined roles in the system.
+     *
+     * @param string|null $namespace
+     * @return Role[]
+     */
+    public function getRoles(?string $namespace = null): array;
+
+    /**
+     * Retrieve all defined permissions in the system.
+     *
+     * @param string|null $namespace
+     * @return Permission[]
+     */
+    public function getPermissions(?string $namespace = null): array;
 
     public function govern(string $action, callable $callback): void;
 

@@ -33,7 +33,7 @@ class InMemoryUserRoleRepository implements UserRoleRepositoryInterface
      * @param bool $resolve Whether to return full Role objects with permissions or not
      * @return Role[]
      */
-    public function getRolesForUser(int|string $user_id, bool $resolve = false): array
+    public function getRolesForUser(int|string $user_id, bool $resolve = false, array $context = []): array
     {
         $roles = [];
 
@@ -42,9 +42,16 @@ class InMemoryUserRoleRepository implements UserRoleRepositoryInterface
 
         foreach ($this->userRoles as $ur) {
             if ((string) $user_id === (string) $ur->user_id) {
+                // If context filter is provided, only return roles matching the context
+                if (!empty($context) && $ur->context !== $context) {
+                    continue;
+                }
+
                 $role = $rolesRepo->findById($ur->role_id, $resolve);
 
-                $roles[] = $role;
+                if ($role) {
+                    $roles[] = $role;
+                }
             }
         }
 
@@ -58,7 +65,8 @@ class InMemoryUserRoleRepository implements UserRoleRepositoryInterface
         foreach ($this->userRoles as $ur) {
             if (
                 (string) $ur->user_id === (string) $userRole->user_id &&
-                (string) $ur->role_id === (string) $userRole->role_id
+                (string) $ur->role_id === (string) $userRole->role_id &&
+                $ur->context === $userRole->context
             ) {
                 return;
             }

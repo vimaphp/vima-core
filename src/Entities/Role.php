@@ -12,6 +12,9 @@ declare(strict_types=1);
 
 namespace Vima\Core\Entities;
 
+use Vima\Core\Contracts\AccessManagerInterface;
+use function Vima\Core\resolve;
+
 /**
  * Class Role
  * 
@@ -31,9 +34,13 @@ class Role
      */
     public function __construct(
         public string $name,
+        public ?string $namespace = null,
         public array $permissions = [],
         public ?string $description = null,
         public int|string|null $id = null,
+        public array $context = [],
+        /** @var Role[] */
+        public array $parents = [],
     ) {
     }
 
@@ -45,9 +52,9 @@ class Role
      * @param string|null $description
      * @return self
      */
-    public static function define(string $name, array $permissions = [], ?string $description = null): self
+    public static function define(string $name, array $permissions = [], ?string $description = null, ?string $namespace = null, array $context = []): self
     {
-        $role = new self(name: $name);
+        $role = new self(name: $name, namespace: $namespace, context: $context);
 
         foreach ($permissions as $perm) {
             $permission = $perm instanceof Permission ? $perm : new Permission(name: $perm);
@@ -91,6 +98,80 @@ class Role
     }
 
     /**
+     * Persist this role via the AccessManager.
+     *
+     * @return Role
+     */
+    public function save(): self
+    {
+        /** @var \Vima\Core\Contracts\AccessManagerInterface */
+        $manager = resolve(AccessManagerInterface::class);
+        return $manager->updateRole($this);
+    }
+
+    /**
+     * Delete this role via the AccessManager.
+     *
+     * @return void
+     */
+    public function delete(): void
+    {
+        /** @var \Vima\Core\Contracts\AccessManagerInterface */
+        $manager = resolve(AccessManagerInterface::class);
+        $manager->deleteRole($this);
+    }
+
+    /**
+     * Set the parent roles.
+     *
+     * @param Role[] $parents
+     * @return $this
+     */
+    public function setParents(array $parents): self
+    {
+        $this->parents = $parents;
+        return $this;
+    }
+
+    /**
+     * Add a parent role.
+     *
+     * @param Role $role
+     * @return $this
+     */
+    public function inherit(Role $role): self
+    {
+        if (!in_array($role, $this->parents, true)) {
+            $this->parents[] = $role;
+        }
+
+        return $this;
+    }
+
+    /**
+     * Flattens all permissions from this role and its parents recursively.
+     *
+     * @param string[] &$visited Map of role names to track circular dependencies.
+     * @return Permission[]
+     */
+    public function getAllPermissions(array &$visited = []): array
+    {
+        if (isset($visited[$this->name])) {
+            return [];
+        }
+
+        $visited[$this->name] = true;
+
+        $permissions = $this->permissions;
+
+        foreach ($this->parents as $parent) {
+            $permissions = array_merge($permissions, $parent->getAllPermissions($visited));
+        }
+
+        return $permissions;
+    }
+
+    /**
      * Check if this role contains any of the given permissions.
      *
      * @param string ...$permissions Variable list of permission names.
@@ -98,11 +179,7 @@ class Role
      */
     public function isPermitted(string ...$permissions): bool
     {
-        $perms = [];
-
-        foreach ($this->permissions as $p) {
-            $perms[] = $p->name;
-        }
+        $perms = array_map(fn($p) => $p->name, $this->getAllPermissions());
 
         foreach ($permissions as $p) {
             if (in_array($p, $perms)) {
