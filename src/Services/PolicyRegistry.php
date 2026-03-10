@@ -86,13 +86,14 @@ class PolicyRegistry implements PolicyRegistryInterface
      * @return bool
      * @throws \Exception If a resource is provided but no policy is registered.
      */
-    public function evaluate(object $user, string $ability, ...$arguments): bool
+    public function evaluate(object $user, string $ability, ?string $namespace = null, ...$arguments): bool
     {
         // 1. Try class-based policy if resource is provided
         if (!empty($arguments) && is_object($arguments[0])) {
             $resource = $arguments[0];
             $resourceClass = get_class($resource);
             $arguments[] = $ability; // provide the ability to the policy method
+            $arguments[] = $namespace; // provide the namespace to the policy method
 
             if (isset($this->policiesClasses[$resourceClass])) {
                 $policyClass = $this->policiesClasses[$resourceClass];

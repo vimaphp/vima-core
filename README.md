@@ -16,6 +16,8 @@ Unlike consumer-facing packages, Vima Core is designed specifically for **framew
 - 🔑 **Entity Foundation**: Standardized `User`, `Role`, and `Permission` entities.
 - 📜 **Unified Access Manager**: A single entry point for both RBAC and ABAC checks.
 - ⚙️ **Flexible Policies**: Class-based and closure-based ABAC support.
+- 🏗️ **Schema-Driven**: Typed DTOs for automated storage and migration setup.
+- 🌐 **Namespacing & Context**: Support for isolated roles and contextual authorization (e.g. multi-tenant).
 - 🧪 **Testable**: Designed with dependency injection and PSR-11 compliance.
 
 ## 📦 Installation
@@ -60,7 +62,7 @@ if ($vima->can($user, 'posts.edit')) {
 }
 
 // ABAC Check (with context)
-if ($vima->can($user, 'posts.edit', $post)) {
+if ($vima->can($user, 'posts.edit', null, $post)) {
     // Authorized based on policy logic...
 }
 ```

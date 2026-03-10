@@ -139,7 +139,7 @@ class AccessManager implements AccessManagerInterface
         }
 
         try {
-            return $this->evaluatePolicy($user, $permission, ...$arguments);
+            return $this->evaluatePolicy($user, $permission, $namespace, ...$arguments);
         } catch (PolicyNotFoundException | PolicyMethodNotFoundException $e) {
             return $hasRbac;
         }
@@ -165,18 +165,19 @@ class AccessManager implements AccessManagerInterface
      *
      * @param object $user User instance.
      * @param string $action Policy action name.
+     * @param string|null $namespace The namespace of the resource.
      * @param mixed ...$arguments Context arguments passed to policy.
      * @return bool Result of policy evaluation.
      * @throws PolicyNotFoundException If policy for the action is missing.
      * @throws PolicyMethodNotFoundException If the specific method is missing in the policy class.
      */
-    public function evaluatePolicy(object $user, string $action, ...$arguments): bool
+    public function evaluatePolicy(object $user, string $action, ?string $namespace = null, ...$arguments): bool
     {
         if (!$this->validatePolicyAction($action, ...$arguments)) {
             throw new PolicyNotFoundException($action);
         }
 
-        return $this->policies->evaluate($user, $action, ...$arguments);
+        return $this->policies->evaluate($user, $action, $namespace, ...$arguments);
     }
 
     /**

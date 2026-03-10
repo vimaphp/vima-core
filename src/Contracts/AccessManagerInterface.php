@@ -53,10 +53,11 @@ interface AccessManagerInterface
      *
      * @param object $user The user object.
      * @param string $action The policy action name.
+     * @param string|null $namespace The namespace of the resource.
      * @param mixed ...$arguments Contextual arguments passed to the policy.
      * @return bool
      */
-    public function evaluatePolicy(object $user, string $action, ...$arguments): bool;
+    public function evaluatePolicy(object $user, string $action, ?string $namespace = null, ...$arguments): bool;
 
     /**
      * Combined access check: returns true if the user has the required permission (RBAC)

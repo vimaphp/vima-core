@@ -44,12 +44,13 @@ interface PolicyRegistryInterface
      *
      * @param object $user The user object.
      * @param string $ability The ability name.
+     * @param string|null $namespace The namespace of the resource.
      * @param mixed ...$arguments Contextual arguments for evaluation.
      * @return bool
      * @throws \Vima\Core\Exceptions\PolicyNotFoundException
      * @throws \Vima\Core\Exceptions\PolicyMethodNotFoundException
      */
-    public function evaluate(object $user, string $ability, ...$arguments): bool;
+    public function evaluate(object $user, string $ability, ?string $namespace = null, ...$arguments): bool;
 
     /**
      * Check if a policy exists for the given action.

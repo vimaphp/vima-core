@@ -13,6 +13,10 @@ Essential interfaces:
 - `UserPermissionRepositoryInterface`
 - `RolePermissionRepositoryInterface`
 
+**Note:** `UserRoleRepositoryInterface::getRolesForUser` signature:
+`public function getRolesForUser(int|string $user_id, bool $resolve = false): array;`
+(Context filtering is now handled at the service level by inspecting `Role` entities).
+
 ```php
 namespace YourFramework\Vima\Repositories;
 
@@ -65,11 +69,13 @@ To make Vima feel "native", provide framework-specific helpers.
 
 ### Global Helper
 ```php
-function can(string $permission, ...$arguments): bool {
+function can(string $permission, ?string $namespace = null, ...$arguments): bool {
     $manager = Vima\Core\resolve(AccessManager::class);
     $user = auth()->user();
+
+    // you can also have a namespace dynamically resolved from the arguments or else set it to null
     
-    return $manager->can($user, $permission, ...$arguments);
+    return $manager->can($user, $permission, $namespace, ...$arguments);
 }
 ```
 
@@ -84,6 +90,33 @@ public function handle($request, Closure $next, $permission) {
     return $next($request);
 }
 ```
+
+## 5. Automated Schema Setup
+
+Vima Core provides a `FrameworkIntegration::getSchema()` method that returns a typed `Schema` DTO. You can use this to automate database migrations or configuration-based storage.
+
+### Example: Dynamic Migrations
+```php
+public function up() {
+    $schema = FrameworkIntegration::getSchema();
+    
+    foreach ($schema->getTables() as $tableName => $table) {
+        $fields = [];
+        foreach ($table->fields as $field) {
+            // Map agnostic types (integer, string, text, json) to your DB layer
+            $fields[$field->name] = [
+                'type' => $field->type === 'integer' ? 'INT' : 'VARCHAR',
+                'unsigned' => $field->unsigned,
+                'null' => $field->nullable,
+            ];
+        }
+        $this->dbForge->addField($fields);
+        $this->dbForge->createTable($tableName);
+    }
+}
+```
+
+By using the `Schema` DTO, your integration will automatically support new fields (like `context` or `namespace`) added to the Core package without manual code updates.
 
 ---
 (c) Vima PHP <https://github.com/vimaphp>
