@@ -16,6 +16,14 @@ use ReflectionClass;
 use ReflectionNamedType;
 use Closure;
 use Psr\Container\ContainerInterface;
+use ReflectionUnionType;
+use RuntimeException;
+use Vima\Core\Contracts\PolicyRegistryInterface;
+use Vima\Core\Services\AccessManager;
+use Vima\Core\Services\PermissionManager;
+use Vima\Core\Services\PolicyRegistry;
+use Vima\Core\Services\RoleManager;
+use Vima\Core\Services\UserResolver;
 
 /**
  * Class DependencyContainer
@@ -34,11 +42,17 @@ class DependencyContainer implements ContainerInterface
     /** @var array<class-string, object> */
     private array $instances = [];
 
+    /** @var array<string, bool> */
+    private array $building = [];
+
     /**
      * @param array $bindings Optional initial bindings.
      */
-    public function __construct(array $bindings = [])
-    {
+    public function __construct(
+        array $bindings = [
+
+        ]
+    ) {
         foreach ($bindings as $abstract => $concrete) {
             $this->register($abstract, $concrete);
         }
@@ -46,6 +60,8 @@ class DependencyContainer implements ContainerInterface
         if (self::$instance === null) {
             self::$instance = $this;
         }
+
+        // self::initAccessManager();
     }
 
     /**
@@ -58,28 +74,36 @@ class DependencyContainer implements ContainerInterface
         if (self::$instance === null) {
             self::$instance = new self();
         }
+
         return self::$instance;
     }
 
     /**
      * Register a binding between an abstract and a concrete implementation.
      *
-     * @param string $abstract
+     * @param string|object $abstract
      * @param object|string|null $concrete
      * @return void
      * @throws \RuntimeException
      */
-    public function register(string $abstract, object|string|null $concrete = null): void
+    public function register(string|object $abstract, object|string|null $concrete = null): void
     {
+        if (is_object($abstract)) {
+            $concrete = $abstract;
+            $abstract = get_class($concrete);
+        }
+
         unset($this->instances[$abstract]);
 
         if ($concrete === null && class_exists($abstract)) {
-            $this->bindings[$abstract] = fn(self $c) => new $abstract();
+            // Let get() handle auto-wiring for registered classes
             return;
         }
 
         if (is_string($concrete) && class_exists($concrete)) {
-            $this->bindings[$abstract] = fn(self $c) => new $concrete();
+            if ($abstract !== $concrete) {
+                $this->bindings[$abstract] = fn(self $c) => $c->get($concrete);
+            }
             return;
         }
 
@@ -93,7 +117,7 @@ class DependencyContainer implements ContainerInterface
             return;
         }
 
-        throw new \RuntimeException("Cannot register binding for {$abstract}");
+        throw new RuntimeException("Cannot register binding for {$abstract}");
     }
 
     /**
@@ -138,30 +162,41 @@ class DependencyContainer implements ContainerInterface
             return $this->instances[$id];
         }
 
-        if (isset($this->bindings[$id])) {
-            $binding = $this->bindings[$id];
-            $object = $binding instanceof Closure ? $binding($this) : $binding;
+        if (isset($this->building[$id])) {
+            throw new RuntimeException("Circular dependency detected for: {$id}");
+        }
 
-            if (!$object instanceof $id && !(interface_exists($id) || (class_exists($id) && (new ReflectionClass($id))->isAbstract()))) {
-                throw new \RuntimeException("Resolved binding for {$id} is not an instance of {$id}");
+        $this->building[$id] = true;
+
+        try {
+            if (isset($this->bindings[$id])) {
+                $binding = $this->bindings[$id];
+                $object = $binding instanceof Closure ? $binding($this) : $binding;
+
+                if (!$object instanceof $id && !(interface_exists($id) || (class_exists($id) && (new ReflectionClass($id))->isAbstract()))) {
+                    throw new RuntimeException("Resolved binding for {$id} is not an instance of {$id}");
+                }
+
+                return $this->instances[$id] = $object;
             }
 
-            return $this->instances[$id] = $object;
-        }
+            // If class or interface does not exist at all
+            if (!class_exists($id) && !interface_exists($id)) {
+                throw new RuntimeException("Class or interface {$id} not found.");
+            }
 
-        // If class or interface does not exist at all
-        if (!class_exists($id) && !interface_exists($id)) {
-            throw new \RuntimeException("Class or interface {$id} not found.");
-        }
+            // If it's an interface or abstract class and no binding was registered → fail
+            $reflector = new ReflectionClass($id);
 
-        // If it's an interface or abstract class and no binding was registered → fail
-        $reflector = new ReflectionClass($id);
-        if ($reflector->isInterface() || $reflector->isAbstract()) {
-            throw new \RuntimeException("Cannot resolve {$id}, no concrete implementation registered.");
-        }
+            if ($reflector->isInterface() || $reflector->isAbstract()) {
+                throw new RuntimeException("Cannot resolve {$id}, no concrete implementation registered.");
+            }
 
-        // Otherwise try to auto-build
-        return $this->instances[$id] = $this->build($id);
+            // Otherwise try to auto-build
+            return $this->instances[$id] = $this->build($id);
+        } finally {
+            unset($this->building[$id]);
+        }
     }
 
     /**
@@ -187,7 +222,7 @@ class DependencyContainer implements ContainerInterface
         $reflector = new ReflectionClass($class);
 
         if (!$reflector->isInstantiable()) {
-            throw new \RuntimeException("Class {$class} is not instantiable.");
+            throw new RuntimeException("Class {$class} is not instantiable.");
         }
 
         $constructor = $reflector->getConstructor();
@@ -200,14 +235,21 @@ class DependencyContainer implements ContainerInterface
         foreach ($constructor->getParameters() as $param) {
             $type = $param->getType();
 
-            if (!$type instanceof ReflectionNamedType || $type->isBuiltin()) {
+            // BUG: we are getting issues with Closures. Since closures arenot instanciable, we need to handle them separately.
+            if (!$type instanceof ReflectionNamedType || $type->isBuiltin() || $type instanceof ReflectionUnionType) {
                 if ($param->isDefaultValueAvailable()) {
                     $params[] = $param->getDefaultValue();
                     continue;
                 }
-                throw new \RuntimeException(
+                throw new RuntimeException(
                     "Cannot resolve parameter \${$param->getName()} of {$class}"
                 );
+            }
+
+            // BUG: we are getting issues with Closures. Since closures arenot instanciable, we need to handle them separately.
+            if ($type->getName() === Closure::class) {
+                $params[] = $param->getDefaultValue();
+                continue;
             }
 
             $dependency = $type->getName();
@@ -222,9 +264,53 @@ class DependencyContainer implements ContainerInterface
      *
      * @return void
      */
+    /**
+     * Reset the singleton instance (useful for testing).
+     */
     public static function reset(): void
     {
         self::$instance = null;
         self::getInstance();
+
+        // self::initAccessManager();
+    }
+
+    /**
+     * Initialize the container with common system interface bindings and register the AccessManager.
+     *
+     * Example usage (tests):
+     * ```php
+     * DependencyContainer::initAccessManager([
+     *     RoleRepositoryInterface::class => new InMemoryRoleRepository(),
+     *     PermissionRepositoryInterface::class => new InMemoryPermissionRepository(),
+     *     // ... other repository implementations
+     * ]);
+     * ```
+     *
+     * @param array $bindings Key => concrete mappings for interfaces and services.
+     * @return DependencyContainer The container instance for chaining.
+     */
+    public static function initAccessManager(array $bindings = []): DependencyContainer
+    {
+        $container = self::getInstance();
+        // Register provided bindings (repositories, resolvers, etc.)
+        $container->registerMany($bindings);
+        // Ensure core services are bound if not already provided.
+        $coreBindings = [
+                // Core services that can be auto-wired; placeholders allow auto-wiring.
+            UserResolver::class => null,
+            PolicyRegistryInterface::class => PolicyRegistry::class,
+            RoleManager::class => null,
+            PermissionManager::class => null,
+            AccessManager::class => null,
+        ];
+        foreach ($coreBindings as $abstract => $concrete) {
+            if (!isset($container->bindings[$abstract]) && !isset($container->instances[$abstract])) {
+                $container->register($abstract, $concrete);
+            }
+        }
+        // Finally, register AccessManager for auto-wiring.
+        $container->register(AccessManager::class, null);
+        return $container;
     }
 }

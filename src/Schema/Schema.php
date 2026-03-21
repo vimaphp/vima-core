@@ -28,4 +28,9 @@ class Schema
     {
         return $this->tables;
     }
+
+    public function getTable(string $name): ?Table
+    {
+        return $this->tables[$name] ?? null;
+    }
 }

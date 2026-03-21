@@ -62,6 +62,25 @@ final class AccessFlowTestCase extends TestCase
      * @var \Vima\Core\Entities\Permission[]
      */
     public $permissions;
+    /**
+     * @var \Vima\Core\Contracts\UserRoleRepositoryInterface
+     */
+    public $userRoleRepo;
+
+    /**
+     * @var \Vima\Core\Contracts\UserPermissionRepositoryInterface
+     */
+    public $userPermissionRepo;
+
+    /**
+     * @var \Vima\Core\Contracts\RolePermissionRepositoryInterface
+     */
+    public $rolePermissionRepo;
+
+    /**
+     * @var \Vima\Core\Contracts\RoleParentRepositoryInterface
+     */
+    public $roleParentRepo;
 }
 
 

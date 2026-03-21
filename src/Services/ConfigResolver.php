@@ -70,7 +70,9 @@ class ConfigResolver
      */
     public function getPermissions(): array
     {
-        return array_map(fn(Permission $p) => $p->name, $this->config->setup->permissions);
+        return array_map(function (Permission $p) {
+            return $p->namespace ? "{$p->namespace}:{$p->name}" : $p->name;
+        }, $this->config->setup->permissions);
     }
 
     /**
@@ -85,7 +87,10 @@ class ConfigResolver
         foreach ($this->config->setup->roles as $role) {
             $roles[$role->name] = [
                 'description' => $role->description,
+                'namespace' => $role->namespace,
                 'permissions' => $this->resolveRolePermissions($role->permissions),
+                'parents' => $role->parents,
+                'children' => $role->children,
             ];
         }
 
@@ -105,24 +110,45 @@ class ConfigResolver
 
         foreach ($permissions as $perm) {
             $name = $perm->name;
+            $namespace = $perm->namespace;
 
-            // Global wildcard
-            if ($name === '*') {
+            // Full namespaced name for search
+            $fullName = $namespace ? "{$namespace}:{$name}" : $name;
+
+            // Global wildcard (all permissions from all namespaces)
+            if ($name === '*' && !$namespace) {
                 $resolved = array_merge($resolved, $all);
                 continue;
             }
 
-            // Wildcard pattern like "users.*"
+            // Namespaced wildcard (e.g., "blog:*")
+            if ($name === '*' && $namespace) {
+                $pattern = "/^{$namespace}:.*$/";
+                $matched = preg_grep($pattern, $all);
+                $resolved = array_merge($resolved, $matched);
+                continue;
+            }
+
+            // Pattern match (e.g., "users.*" or "blog:posts.*")
             if (str_contains($name, '*')) {
-                $regex = '/^' . str_replace('\*', '.*', preg_quote($name, '/')) . '$/';
+                // If it's a namespaced pattern like "blog:posts.*"
+                if (str_contains($name, ':')) {
+                    [$pNamespace, $pPattern] = explode(':', $name);
+                    $regex = '/^' . preg_quote($pNamespace, '/') . ':' . str_replace('\*', '.*', preg_quote($pPattern, '/')) . '$/';
+                } else {
+                    // Local pattern adopts permission's namespace
+                    $prefix = $namespace ? preg_quote($namespace, '/') . ':' : '';
+                    $regex = '/^' . $prefix . str_replace('\*', '.*', preg_quote($name, '/')) . '$/';
+                }
+
                 $matched = preg_grep($regex, $all);
                 $resolved = array_merge($resolved, $matched);
                 continue;
             }
 
-            // Exact match
-            if (in_array($name, $all, true)) {
-                $resolved[] = $name;
+            // Exact match - include even if not in $all (implied permissions)
+            if (!in_array($fullName, $resolved, true)) {
+                $resolved[] = $fullName;
             }
         }
 

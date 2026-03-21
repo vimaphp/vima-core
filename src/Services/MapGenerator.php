@@ -13,6 +13,9 @@ declare(strict_types=1);
 namespace Vima\Core\Services;
 
 use Vima\Core\Config\Setup;
+use Vima\Core\Contracts\EventDispatcherInterface;
+use Vima\Core\Events\DefaultEventDispatcher;
+use Vima\Core\Events\Mapping\MapGenerated;
 
 /**
  * Class MapGenerator
@@ -21,8 +24,11 @@ use Vima\Core\Config\Setup;
  */
 class MapGenerator
 {
-    public function __construct(private MappingService $mappingService)
-    {
+    public function __construct(
+        private MappingService $mappingService,
+        private ?EventDispatcherInterface $dispatcher = null
+    ) {
+        $this->dispatcher ??= new DefaultEventDispatcher();
     }
 
     /**
@@ -30,11 +36,14 @@ class MapGenerator
      */
     public function generateRoles(Setup $setup, string $namespace): string
     {
-        $roleNames = array_map(fn($role) => $role->name, $setup->roles);
+        $roleNames = array_map(fn($role) => $role->namespace ? $role->namespace . ':' . $role->name : $role->name, $setup->roles);
         $this->mappingService->sync($roleNames, 'roles');
         $this->mappingService->save();
 
-        return $this->renderClass('Roles', $namespace, $this->mappingService->all('roles'));
+        $map = $this->mappingService->all('roles');
+        $this->dispatcher->dispatch(new MapGenerated('roles', $map));
+
+        return $this->renderClass('Roles', $namespace, $map);
     }
 
     /**
@@ -42,14 +51,14 @@ class MapGenerator
      */
     public function generatePermissions(Setup $setup, string $namespace): string
     {
-        $permissionNames = array_map(fn($perm) => $perm->name, $setup->permissions);
+        $permissionNames = array_map(fn($perm) => $perm->namespace ? $perm->namespace . ':' . $perm->name : $perm->name, $setup->permissions);
 
         // Also collect permissions defined within roles
         foreach ($setup->roles as $role) {
             foreach ($role->permissions as $perm) {
-                // FIX: Issue #3
-                if (!in_array($perm->name, $permissionNames) && !str_contains($perm->name, '*')) {
-                    $permissionNames[] = $perm->name;
+                $name = $perm->namespace ? $perm->namespace . ':' . $perm->name : $perm->name;
+                if (!in_array($name, $permissionNames) && !str_contains($perm->name, '*')) {
+                    $permissionNames[] = $name;
                 }
             }
         }
@@ -57,7 +66,19 @@ class MapGenerator
         $this->mappingService->sync($permissionNames, 'permissions');
         $this->mappingService->save();
 
-        return $this->renderClass('Permissions', $namespace, $this->mappingService->all('permissions'));
+        $map = $this->mappingService->all('permissions');
+        $this->dispatcher->dispatch(new MapGenerated('permissions', $map));
+
+        return $this->renderClass('Permissions', $namespace, $map);
+    }
+
+    /**
+     * Generate Namespaces class content.
+     */
+    public function generateNamespaces(string $namespace): string
+    {
+        $map = $this->mappingService->all('namespaces');
+        return $this->renderClass('Namespaces', $namespace, $map);
     }
 
     /**

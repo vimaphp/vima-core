@@ -12,7 +12,10 @@ declare(strict_types=1);
 
 namespace Vima\Core\Services;
 
+use Vima\Core\Contracts\EventDispatcherInterface;
 use Vima\Core\Contracts\{PolicyInterface, PolicyRegistryInterface};
+use Vima\Core\Events\DefaultEventDispatcher;
+use Vima\Core\Events\Policy\PolicyRegistered;
 use Vima\Core\Exceptions\PolicyNotFoundException;
 use Vima\Core\Exceptions\PolicyMethodNotFoundException;
 
@@ -31,6 +34,13 @@ class PolicyRegistry implements PolicyRegistryInterface
 
     /** @var array<string, string> */
     private array $policiesClasses = [];
+
+    private ?EventDispatcherInterface $dispatcher;
+
+    public function __construct(?EventDispatcherInterface $dispatcher = null)
+    {
+        $this->dispatcher = $dispatcher ?? (defined('Vima\Core\Contracts\EventDispatcherInterface') ? \Vima\Core\resolve(EventDispatcherInterface::class) : new DefaultEventDispatcher());
+    }
 
     private static $instance = null;
 
@@ -60,6 +70,7 @@ class PolicyRegistry implements PolicyRegistryInterface
     public function register(string $ability, callable $callback): void
     {
         $this->policies[$ability] = $callback;
+        $this->dispatcher->dispatch(new PolicyRegistered($ability, $callback));
     }
 
     /**
@@ -75,6 +86,7 @@ class PolicyRegistry implements PolicyRegistryInterface
             throw new \InvalidArgumentException("Policy class {$policyClass} must implement Vima\Core\Contracts\PolicyInterface");
         }
         $this->policiesClasses[$resourceClass] = $policyClass;
+        $this->dispatcher->dispatch(new PolicyRegistered($resourceClass, $policyClass));
     }
 
     /**

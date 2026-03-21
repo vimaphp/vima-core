@@ -29,6 +29,7 @@ class Permission
      * Permission constructor.
      *
      * @param string $name Unique name of the permission.
+     * @param string|null $namespace Optional namespace.
      * @param string|null $description Optional description.
      * @param int|string|null $id Unique identifier from storage.
      */
@@ -38,6 +39,11 @@ class Permission
         public ?string $description = null,
         public int|string|null $id = null,
     ) {
+        if (str_contains($this->name, ':')) {
+            [$ns, $n] = explode(':', $this->name, 2);
+            $this->namespace = $ns;
+            $this->name = $n;
+        }
     }
 
     /**

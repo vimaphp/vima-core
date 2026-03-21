@@ -13,6 +13,7 @@ namespace Vima\Core\Services;
 
 use Vima\Core\Config\Setup;
 use Vima\Core\Config\VimaConfig;
+use Vima\Core\Contracts\CacheInterface;
 use Vima\Core\Contracts\AccessManagerInterface;
 use Vima\Core\Contracts\PolicyRegistryInterface;
 use Vima\Core\Contracts\{
@@ -22,6 +23,7 @@ use Vima\Core\Contracts\{
     UserRoleRepositoryInterface
 };
 use Vima\Core\Contracts\UserPermissionRepositoryInterface;
+use Vima\Core\Contracts\UserDenyRepositoryInterface;
 use Vima\Core\Entities\{Role, Permission};
 use Vima\Core\Entities\UserPermission;
 use Vima\Core\Entities\UserRole;
@@ -30,6 +32,16 @@ use Vima\Core\Exceptions\PermissionNotFoundException;
 use Vima\Core\Exceptions\PolicyNotFoundException;
 use Vima\Core\Exceptions\PolicyMethodNotFoundException;
 use Vima\Core\Exceptions\RoleNotFoundException;
+use Vima\Core\Contracts\EventDispatcherInterface;
+use Vima\Core\Events\Access\AccessAllowed; // Wait, I didn't create AccessAllowed, I'll use result in AuthorizationChecked
+use Vima\Core\Events\Access\AuthorizationChecked;
+use Vima\Core\Events\Access\AccessDenied;
+use Vima\Core\Events\DefaultEventDispatcher;
+use Vima\Core\Events\Grant\PermissionGranted;
+use Vima\Core\Events\Grant\PermissionRevoked;
+use Vima\Core\Events\Grant\RoleAssigned;
+use Vima\Core\Events\Grant\RoleDetached;
+use Vima\Core\Support\Utils;
 use function Vima\Core\resolve;
 
 /**
@@ -44,28 +56,78 @@ use function Vima\Core\resolve;
  */
 class AccessManager implements AccessManagerInterface
 {
-    private PermissionManager $permissionManager;
-    private RoleRepositoryInterface $roles;
-    private PermissionRepositoryInterface $permissions;
-    private RolePermissionRepositoryInterface $rolePermisisons;
-    private UserRoleRepositoryInterface $userRoles;
-    private UserPermissionRepositoryInterface $userPermissions;
-    private PolicyRegistryInterface $policies;
-    private UserResolver $userResolver;
-    private RoleManager $roleManager;
+    private array $runtimeCache = [];
 
-    public function __construct()
+    public function __construct(
+        private RoleRepositoryInterface $roles,
+        private PermissionRepositoryInterface $permissions,
+        private RolePermissionRepositoryInterface $rolePermissions,
+        private UserRoleRepositoryInterface $userRoles,
+        private UserPermissionRepositoryInterface $userPermissions,
+        private PolicyRegistryInterface $policies,
+        private UserResolver $userResolver,
+        private RoleManager $roleManager,
+        private PermissionManager $permissionManager,
+        private VimaConfig $config,
+        private CacheInterface $cache,
+        private UserDenyRepositoryInterface $userDenies,
+        private EventDispatcherInterface $dispatcher
+    ) {
+    }
+
+    /**
+     * Generates a stable cache key for a specific user and permission check.
+     *
+     * @param string|int $userId
+     * @param string $permission
+     * @param string|null $namespace
+     * @param array $context
+     * @return string
+     */
+    protected function getCacheKey(string|int $userId, string $permission, ?string $namespace = null, array $context = []): string
     {
-        $this->roles = resolve(RoleRepositoryInterface::class);
-        $this->permissions = resolve(PermissionRepositoryInterface::class);
-        $this->rolePermisisons = resolve(RolePermissionRepositoryInterface::class);
-        $this->userRoles = resolve(UserRoleRepositoryInterface::class);
-        $this->userPermissions = resolve(UserPermissionRepositoryInterface::class);
-        $this->policies = resolve(PolicyRegistry::class);
-        $this->userResolver = resolve(UserResolver::class);
+        $ctxHash = '';
+        if (!empty($context)) {
+            ksort($context);
+            $ctxHash = '_' . md5(json_encode($context));
+        }
 
-        $this->roleManager = new RoleManager();
-        $this->permissionManager = new PermissionManager();
+        $key = $this->config->cachePrefix . 'auth_' . $userId . '_' . ($namespace ?? 'global') . '_' . $permission . $ctxHash;
+
+        // CodeIgniter/PSR-16 reserved: {}()/\@:
+        return str_replace(['{', '}', '(', ')', '/', '\\', '@', ':'], '_', $key);
+    }
+
+    /**
+     * Clears the entire Vima cache.
+     */
+    public function clearCache(): void
+    {
+        $this->runtimeCache = [];
+        if ($this->config->cacheEnabled) {
+            $this->cache->clear();
+        }
+    }
+
+    /**
+     * Invalidates all cached authorization results for a specific user.
+     * Since keys are granular, we might need a way to clear by tags if the cache supports it,
+     * but for now, we'll just clear the whole vima cache if the driver is simple.
+     * Or better, we can clear the whole vima cache if the driver is simple.
+     *
+     * @param string|int $userId
+     */
+    protected function invalidateUserCache(string|int $userId): void
+    {
+        if (!$this->config->cacheEnabled) {
+            return;
+        }
+
+        // Ideally we'd only clear this user's keys, but without tagging support in CacheInterface,
+        // we'll at least clear the obvious ones or just rely on TTL.
+        // For now, let's just clear the whole Vima cache to be safe on grants.
+        $this->runtimeCache = [];
+        $this->cache->clear();
     }
 
     /**
@@ -75,14 +137,39 @@ class AccessManager implements AccessManagerInterface
      * @param string|Permission $permission Permission name to check.
      * @return bool True if the user has the permission, false otherwise.
      */
-    public function isPermitted(object $user, string|Permission $permission, array $context = [], ?string $namespace = null): bool
+    public function isPermitted(object $user, string $permission, array $context = [], ?string $namespace = null): bool
     {
         $id = $this->userResolver->resolveId($user);
-        $permName = is_string($permission) ? $permission : $permission->name;
-        $permId = !is_string($permission) ? $permission->id : null;
 
-        // Use provided namespace or fallback to the permission object's namespace
-        $permNamespace = is_string($permission) ? $namespace : $permission->namespace;
+        // 1. Check for explicit denial (Deny layer overrides all)
+        if ($this->isDenied($user, $permission)) {
+            return false;
+        }
+
+        [$permNamespace, $permName] = Utils::splitPermission($permission);
+
+        if ($namespace === null) {
+            $namespace = $permNamespace;
+        }
+
+        $permNamespace = $namespace;
+
+        $cacheKey = null;
+        if ($this->config->cacheEnabled) {
+            $cacheKey = $this->getCacheKey($id, $permName, $permNamespace, $context);
+
+            if (isset($this->runtimeCache[$cacheKey])) {
+                return $this->runtimeCache[$cacheKey];
+            }
+
+            $cachedValue = $this->cache->get($cacheKey);
+            if ($cachedValue !== null) {
+                $this->runtimeCache[$cacheKey] = (bool) $cachedValue;
+                return (bool) $cachedValue;
+            }
+        }
+
+        $permId = !is_string($permission) ? $permission->id : null;
 
         $roles = $this->roleManager->getUserRoles($id, true);
 
@@ -97,52 +184,94 @@ class AccessManager implements AccessManagerInterface
             });
         }
 
+        $result = false;
         foreach ($roles as $role) {
             foreach ($role->getAllPermissions() as $perm) {
                 if ($permId !== null && $perm->id === $permId) {
-                    return true;
+                    $result = true;
+                    break 2;
                 }
 
-                if ($perm->name === $permName && ($permNamespace === null || $perm->namespace === $permNamespace)) {
-                    return true;
+                // Check for exact match or wildcard match
+                $match = false;
+                if ($perm->name === $permName) {
+                    $match = true;
+                } elseif (str_ends_with($perm->name, '*') && str_starts_with($permName, rtrim($perm->name, '*'))) {
+                    $match = true;
+                }
+
+                if ($match && ($permNamespace === null || $perm->namespace === $permNamespace)) {
+                    $result = true;
+                    break 2;
                 }
             }
         }
 
-        foreach ($this->permissionManager->getDirectPermissions($id) as $perm) {
-            if ($permId !== null && $perm->id === $permId) {
-                return true;
-            }
+        if (!$result) {
+            foreach ($this->permissionManager->getDirectPermissions($id) as $perm) {
+                if ($permId !== null && $perm->id === $permId) {
+                    $result = true;
+                    break;
+                }
 
-            if ($perm->name === $permName && ($permNamespace === null || $perm->namespace === $permNamespace)) {
-                return true;
+                $match = false;
+                if ($perm->name === $permName) {
+                    $match = true;
+                } elseif (str_ends_with($perm->name, '*') && str_starts_with($permName, rtrim($perm->name, '*'))) {
+                    $match = true;
+                }
+
+                if ($match && ($permNamespace === null || $perm->namespace === $permNamespace)) {
+                    $result = true;
+                    break;
+                }
             }
         }
 
-        return false;
+        if ($cacheKey) {
+            $this->runtimeCache[$cacheKey] = $result;
+            $this->cache->set($cacheKey, $result, $this->config->cacheTTL);
+        }
+
+        return $result;
     }
 
     /**
      * Checks if the user can perform an action (RBAC + ABAC).
      *
-     * @param object|string $user User object or identifier.
+     * @param object $user User object or identifier.
      * @param string $permission Permission or ability name.
      * @param mixed ...$arguments Optional arguments for policy evaluation.
      * @return bool True if authorized, false otherwise.
      */
-    public function can(object|string $user, string $permission, ?string $namespace = null, ...$arguments): bool
+    public function can(object $user, string $permission, ?string $namespace = null, ...$arguments): bool
     {
-        $hasRbac = $this->isPermitted($user, $permission, [], $namespace);
+        [$permNamespace, $permission] = Utils::splitPermission($permission);
 
-        if (empty($arguments)) {
-            return $hasRbac;
+        if ($namespace === null) {
+            $namespace = $permNamespace;
         }
 
-        try {
-            return $this->evaluatePolicy($user, $permission, $namespace, ...$arguments);
-        } catch (PolicyNotFoundException | PolicyMethodNotFoundException $e) {
-            return $hasRbac;
+        $hasRbac = $this->isPermitted($user, $permission, namespace: $namespace);
+        $result = $hasRbac;
+
+        if (!empty($arguments)) {
+            try {
+                $result = $this->evaluatePolicy($user, $permission, $namespace, ...$arguments);
+            } catch (PolicyNotFoundException | PolicyMethodNotFoundException $e) {
+                $result = $hasRbac;
+            }
         }
+
+        $this->dispatcher->dispatch(new AuthorizationChecked(
+            $user,
+            $permission,
+            $result,
+            $namespace,
+            $arguments
+        ));
+
+        return $result;
     }
 
     /**
@@ -156,6 +285,7 @@ class AccessManager implements AccessManagerInterface
     public function enforce(object $user, string $permission, ?string $namespace = null, ...$arguments): void
     {
         if (!$this->can($user, $permission, $namespace, ...$arguments)) {
+            $this->dispatcher->dispatch(new AccessDenied($user, $permission, $namespace, $arguments));
             throw new AccessDeniedException($permission, $user, $this->userResolver);
         }
     }
@@ -310,6 +440,9 @@ class AccessManager implements AccessManagerInterface
         $userRole = UserRole::define($userId, $roleRecord->id);
 
         $this->userRoles->assign($userRole);
+        $this->invalidateUserCache($userId);
+
+        $this->dispatcher->dispatch(new RoleAssigned($userId, $roleRecord));
     }
 
     /**
@@ -331,6 +464,9 @@ class AccessManager implements AccessManagerInterface
         }
 
         $this->userRoles->revoke(UserRole::define($userId, $roleRecord->id));
+        $this->invalidateUserCache($userId);
+
+        $this->dispatcher->dispatch(new RoleDetached($userId, $roleRecord));
     }
 
     /**
@@ -400,6 +536,9 @@ class AccessManager implements AccessManagerInterface
                     permission_id: $permissionRecord->id
                 )
             );
+        $this->invalidateUserCache($userId);
+
+        $this->dispatcher->dispatch(new PermissionGranted($userId, $permissionRecord));
     }
 
     /**
@@ -426,6 +565,83 @@ class AccessManager implements AccessManagerInterface
                 user_id: $userId,
                 permission_id: $permissionRecord->id
             ));
+        $this->invalidateUserCache($userId);
+
+        $this->dispatcher->dispatch(new PermissionRevoked($userId, $permissionRecord));
+    }
+
+    /**
+     * Explicitly deny a permission to a user.
+     *
+     * @param object $user User object.
+     * @param string|Permission $permission Permission name or entity.
+     * @return void
+     */
+    public function deny(object $user, string|Permission $permission): void
+    {
+        $userId = $this->userResolver->resolveId($user);
+        $permissionRecord = $this->permissionManager->find($permission);
+
+        if (!$permissionRecord) {
+            $permissionRecord = $this->permissionManager->create($permission);
+        }
+
+        $this->userDenies->add($userId, $permissionRecord->id);
+        $this->invalidateUserCache($userId);
+    }
+
+    /**
+     * Remove an explicit denial for a user.
+     *
+     * @param object $user User object.
+     * @param string|Permission $permission Permission name or entity.
+     * @return void
+     */
+    public function undeny(object $user, string|Permission $permission): void
+    {
+        $userId = $this->userResolver->resolveId($user);
+        $permissionRecord = $this->permissionManager->find($permission);
+
+        if ($permissionRecord) {
+            $this->userDenies->remove($userId, $permissionRecord->id);
+            $this->invalidateUserCache($userId);
+        }
+    }
+
+    /**
+     * Check if a user has an explicit denial for a permission.
+     *
+     * @param object $user User object.
+     * @param string|Permission $permission Permission name or entity.
+     * @return bool
+     */
+    public function isDenied(object $user, string|Permission $permission, ?string $namespace = null): bool
+    {
+        $permissionRecord = null;
+
+        try {
+            if (is_string($permission)) {
+                [$permNamespace, $name] = Utils::splitPermission($permission);
+
+                if ($namespace === null) {
+                    $namespace = $permNamespace;
+                }
+
+                $permissionRecord = $this->permissionManager->find($name, $namespace);
+            } elseif ($permission instanceof Permission) {
+                $permissionRecord = $this->permissionManager->find($permission);
+            }
+        } catch (PermissionNotFoundException $th) {
+            return false;
+        }
+
+        $userId = $this->userResolver->resolveId($user);
+
+        if (!$permissionRecord) {
+            return false;
+        }
+
+        return $this->userDenies->isDenied($userId, $permissionRecord->id);
     }
 
     /**
@@ -504,17 +720,22 @@ class AccessManager implements AccessManagerInterface
     /**
      * @inheritDoc
      */
-    public function getRoles(?string $namespace = null): array
+    public function getRoles(?string $namespace = null, bool $onlyGlobal = false, bool $resolve = false): array
     {
-        return $this->roleManager->all($namespace);
+        return $this->roleManager->all($namespace, $onlyGlobal, $resolve);
+    }
+
+    public function getPermissions(?string $namespace = null): array
+    {
+        return $this->permissionManager->all($namespace);
     }
 
     /**
      * @inheritDoc
      */
-    public function getPermissions(?string $namespace = null): array
+    public function getAllPermissions(?string $namespace = null, bool $onlyGlobal = false): array
     {
-        return $this->permissionManager->all($namespace);
+        return $this->permissions->all($namespace, $onlyGlobal);
     }
 
     /**
@@ -563,6 +784,8 @@ class AccessManager implements AccessManagerInterface
                 $perm->id
             ));
         }
+
+        $this->invalidateUserCache($user_id);
     }
 
     /**

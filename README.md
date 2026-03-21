@@ -19,6 +19,7 @@ Unlike consumer-facing packages, Vima Core is designed specifically for **framew
 - 🏗️ **Schema-Driven**: Typed DTOs for automated storage and migration setup.
 - 🌐 **Namespacing & Context**: Support for isolated roles and contextual authorization (e.g. multi-tenant).
 - 🧪 **Testable**: Designed with dependency injection and PSR-11 compliance.
+- 📡 **Event-Driven**: Hook into system actions, sync operations, and repository changes.
 
 ## 📦 Installation
 
@@ -89,6 +90,7 @@ Detailed guides for deep integration:
 
 - [**Architecture Overview**](docs/architecture.md) – Understand the design and "The Vima Way".
 - [**Integration Guide**](docs/integration.md) – Step-by-step instructions for framework developers.
+- [**Event System**](docs/events.md) – Hook into internal Vima operations and actions.
 
 ## 📂 Package Structure
 

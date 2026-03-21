@@ -17,25 +17,21 @@ class InMemoryPermissionRepository implements PermissionRepositoryInterface
         $key = $namespace . ':' . $name;
         return $this->permissions[$key] ?? null;
     }
-    public function findById(int|string $id): ?Permission
-    {
-        $permission = null;
-        $perm = array_filter($this->permissions, function ($p) use ($id, &$permission) {
-            $check = $p->id === $id;
-            if ($check) {
-                $permission = $p;
-            }
 
-            return $check;
-        });
-        return $permission;
+    public function findById($id): ?Permission
+    {
+        foreach ($this->permissions as $p) {
+            if ($p->id == $id) {
+                return $p;
+            }
+        }
+        return null;
     }
 
     public function save(Permission $permission): Permission
     {
         if ($permission->id === null) {
             $permission->id = $this->id;
-
             $this->id++;
         }
 
@@ -51,13 +47,17 @@ class InMemoryPermissionRepository implements PermissionRepositoryInterface
         unset($this->permissions[$key]);
     }
 
-    public function all(?string $namespace = null): array
+    public function all(?string $namespace = null, bool $onlyGlobal = false): array
     {
-        if ($namespace === null) {
-            return array_values($this->permissions);
+        $filtered = array_values($this->permissions);
+
+        if ($namespace !== null) {
+            $filtered = array_filter($this->permissions, fn($p) => $p->namespace === $namespace);
+        } elseif ($onlyGlobal) {
+            $filtered = array_filter($this->permissions, fn($p) => empty($p->namespace));
         }
 
-        return array_values(array_filter($this->permissions, fn($p) => $p->namespace === $namespace));
+        return array_values($filtered);
     }
 
     public function deleteAll(): void

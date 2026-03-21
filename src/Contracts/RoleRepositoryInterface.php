@@ -23,13 +23,6 @@ use Vima\Core\Entities\Role;
  */
 interface RoleRepositoryInterface
 {
-    /**
-     * Find a role by its unique name, optionally within a namespace.
-     *
-     * @param string $name
-     * @param string|null $namespace
-     * @return Role|null
-     */
     public function findByName(string $name, ?string $namespace = null): ?Role;
 
     /**
@@ -45,9 +38,11 @@ interface RoleRepositoryInterface
      * Retrieve all roles, optionally filtered by namespace.
      * 
      * @param string|null $namespace
+     * @param bool $onlyGlobal
+     * @param bool $resolve
      * @return Role[]
      */
-    public function all(?string $namespace = null): array;
+    public function all(?string $namespace = null, bool $onlyGlobal = false, bool $resolve = false): array;
 
     /**
      * Persist or update a role.

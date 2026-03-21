@@ -12,6 +12,10 @@ declare(strict_types=1);
 
 namespace Vima\Core\Services;
 
+use Vima\Core\Contracts\EventDispatcherInterface;
+use Vima\Core\Events\DefaultEventDispatcher;
+use Vima\Core\Events\Mapping\MapGenerated;
+
 /**
  * Class MappingService
  * 
@@ -22,11 +26,15 @@ class MappingService
 {
     private array $mapping = [
         'roles' => [],
-        'permissions' => []
+        'permissions' => [],
+        'namespaces' => []
     ];
 
-    public function __construct(private string $mappingFilePath)
-    {
+    public function __construct(
+        private string $mappingFilePath,
+        private ?EventDispatcherInterface $dispatcher = null
+    ) {
+        $this->dispatcher ??= new DefaultEventDispatcher();
         $this->load();
     }
 
@@ -58,6 +66,10 @@ class MappingService
             $this->mappingFilePath,
             json_encode($this->mapping, JSON_PRETTY_PRINT)
         );
+
+        foreach ($this->mapping as $type => $map) {
+            $this->dispatcher->dispatch(new MapGenerated($type, $map));
+        }
     }
 
     /**
@@ -79,6 +91,12 @@ class MappingService
         // Generate new slug
         $slug = $this->generateSlug($name);
 
+        // Extract namespace if present
+        if (str_contains($name, ':')) {
+            $namespace = explode(':', $name, 2)[0];
+            $this->getOrRegisterNamespace($namespace);
+        }
+
         // Ensure slug is unique within this type
         $originalSlug = $slug;
         $counter = 1;
@@ -87,6 +105,20 @@ class MappingService
         }
 
         $this->mapping[$type][$slug] = $name;
+        return $slug;
+    }
+
+    /**
+     * Get or register a namespace slug.
+     */
+    public function getOrRegisterNamespace(string $namespace): string
+    {
+        $slug = $this->generateSlug($namespace);
+        
+        if (!isset($this->mapping['namespaces'][$slug])) {
+            $this->mapping['namespaces'][$slug] = $namespace;
+        }
+
         return $slug;
     }
 
@@ -124,6 +156,11 @@ class MappingService
         foreach ($permissionGroups as $namespace => $items) {
             $prefix = $namespace !== '' ? $this->toPascalCase($namespace) : '';
             $this->writeTsFile($outputDir . "/{$prefix}Permissions.ts", "{$prefix}Permissions", $items);
+        }
+
+        // Generate Namespaces
+        if (!empty($this->mapping['namespaces'])) {
+            $this->writeTsFile($outputDir . "/Namespaces.ts", "Namespaces", $this->mapping['namespaces']);
         }
     }
 

@@ -18,12 +18,13 @@ class UserRole
     public function __construct(
         public string|int $user_id,
         public int|string $role_id,
+        public array $context = [],
         public string|int|null $id = null,
     ) {
     }
 
-    public static function define(int|string $user_id, int|string $role_id): UserRole
+    public static function define(int|string $user_id, int|string $role_id, array $context = []): UserRole
     {
-        return new self(role_id: $role_id, user_id: $user_id);
+        return new self(role_id: $role_id, user_id: $user_id, context: $context);
     }
 }

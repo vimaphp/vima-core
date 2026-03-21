@@ -48,4 +48,30 @@ class Table
         $this->foreignKeys[] = $fk;
         return $this;
     }
+
+    public function getName(): string
+    {
+        return $this->name;
+    }
+
+    /**
+     * @return Field[]
+     */
+    public function getFields(): array
+    {
+        return $this->fields;
+    }
+
+    public function getPrimaryKey(): ?string
+    {
+        return $this->primaryKeys[0] ?? null;
+    }
+
+    /**
+     * @return array<array<string>>
+     */
+    public function getUniqueKeys(): array
+    {
+        return $this->uniqueKeys;
+    }
 }

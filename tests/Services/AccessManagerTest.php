@@ -1,7 +1,11 @@
 <?php
 
 use Vima\Core\Config\VimaConfig;
+use Vima\Core\Contracts\AccessManagerInterface;
+use Vima\Core\Contracts\EventDispatcherInterface;
 use Vima\Core\Contracts\PermissionRepositoryInterface;
+use Vima\Core\Contracts\PolicyRegistryInterface;
+use Vima\Core\Contracts\RoleParentRepositoryInterface;
 use Vima\Core\Contracts\RolePermissionRepositoryInterface;
 use Vima\Core\Contracts\RoleRepositoryInterface;
 use Vima\Core\Contracts\UserPermissionRepositoryInterface;
@@ -22,36 +26,21 @@ use Vima\Core\Tests\Fixtures\Storage\InMemoryRoleRepository;
 use Vima\Core\Tests\Fixtures\Storage\InMemoryUserPermissionRepository;
 use Vima\Core\Tests\Fixtures\Storage\InMemoryUserRoleRepository;
 use Vima\Core\Tests\Fixtures\User;
+use Vima\Core\Tests\Fixtures\MockEventDispatcher;
+use Vima\Core\Tests\Fixtures\Storage\InMemoryRoleParentRepository;
+
 use function Vima\Core\registerMany;
 use function Vima\Core\resolve;
 
 beforeEach(function () {
     /** @var \Vima\Core\Tests\ManagerTestCase $this */
-    $this->roleRepo = new InMemoryRoleRepository();
-    $this->permissionRepo = new InMemoryPermissionRepository();
-    $this->userPermissionRepo = new InMemoryUserPermissionRepository();
-    $this->userRoleRepo = new InMemoryUserRoleRepository();
-    $this->rolePermissionRepo = new InMemoryRolePermissionRepository();
+    initDependencies();
 
-    $userResolver = new UserResolver(new VimaConfig());
-    $policyRegistry = new PolicyRegistry();
+    $policyRegistry = resolve(PolicyRegistryInterface::class);
 
-    registerMany([
-        RoleRepositoryInterface::class => $this->roleRepo,
-        PermissionRepositoryInterface::class => $this->permissionRepo,
-        UserPermissionRepositoryInterface::class => $this->userPermissionRepo,
-        UserRoleRepositoryInterface::class => $this->userRoleRepo,
-        RolePermissionRepositoryInterface::class => $this->rolePermissionRepo,
-        UserResolver::class => new UserResolver(new VimaConfig()),
-        PolicyRegistry::class => new PolicyRegistry(),
-        AccessManager::class,
-        SyncService::class => fn(DependencyContainer $c) => new SyncService(
-            roles: $c->get(RoleRepositoryInterface::class),
-            permissions: $c->get(PermissionRepositoryInterface::class)
-        )
-    ]);
+    $policyRegistry->register('posts.update', fn(User $u, $post) => $u->vimaGetId() === $post['ownerId']);
 
-    $this->accessManager = new AccessManager();
+    $this->accessManager = resolve(AccessManager::class);
 });
 
 it('returns true if user has permission', function () {
@@ -94,8 +83,8 @@ it('throws AccessDeniedException when unauthorized', function () {
 it('passes authorization if user has permission', function () {
     /** @var \Vima\Core\Tests\ManagerTestCase $this */
 
-    /* $role = new Role('admin');
-    $role->ensurePermission(new Permission('users.delete'));
+    $role = new Role('admin');
+    $role->permit(new Permission('users.delete'));
 
     $this->accessManager->ensureRole($role);
 
@@ -103,7 +92,7 @@ it('passes authorization if user has permission', function () {
 
     $this->accessManager->assignRole($user, $role);
 
-    $this->accessManager->enforce($user, 'users.delete'); */
+    $this->accessManager->enforce($user, 'users.delete');
     expect(true)->toBeTrue();
 });
 
@@ -117,35 +106,13 @@ it('throws exception for policy evaluation when no policy is registered', functi
 
 it('delegates policy evaluation to registry', function () {
     /** @var \Vima\Core\Tests\ManagerTestCase $this */
+    initDependencies();
 
-    $registry = PolicyRegistry::define([
-        'posts.update' => fn(User $u, $post) => $u->vimaGetId() === $post['ownerId'],
-    ]);
+    $registry = resolve(PolicyRegistryInterface::class);
+    $registry->register('posts.update', fn(User $u, $post) => $u->vimaGetId() === $post['ownerId']);
 
-    $this->roleRepo = new InMemoryRoleRepository();
-    $this->permissionRepo = new InMemoryPermissionRepository();
-    $this->userPermissionRepo = new InMemoryUserPermissionRepository();
-    $this->userRoleRepo = new InMemoryUserRoleRepository();
-    $this->rolePermissionRepo = new InMemoryRolePermissionRepository();
 
-    $userResolver = new UserResolver(new VimaConfig());
-
-    registerMany([
-        RoleRepositoryInterface::class => $this->roleRepo,
-        PermissionRepositoryInterface::class => $this->permissionRepo,
-        UserPermissionRepositoryInterface::class => $this->userPermissionRepo,
-        UserRoleRepositoryInterface::class => $this->userRoleRepo,
-        RolePermissionRepositoryInterface::class => $this->rolePermissionRepo,
-        UserResolver::class => new UserResolver(new VimaConfig()),
-        PolicyRegistry::class => $registry,
-        AccessManager::class,
-        SyncService::class => fn(DependencyContainer $c) => new SyncService(
-            roles: $c->get(RoleRepositoryInterface::class),
-            permissions: $c->get(PermissionRepositoryInterface::class)
-        )
-    ]);
-
-    $manager = new AccessManager();
+    $manager = resolve(AccessManager::class);
 
     $user = new User(1);
     $post = ['ownerId' => 1];
@@ -155,7 +122,7 @@ it('delegates policy evaluation to registry', function () {
 
 it('supports class-based policy registration and evaluation', function () {
     /** @var \Vima\Core\Tests\ManagerTestCase $this */
-    $manager = new AccessManager();
+    $manager = resolve(AccessManager::class);
 
     class AccessTestPost
     {
@@ -191,7 +158,7 @@ it('supports class-based policy registration and evaluation', function () {
 
 it('integrates RBAC permissions with ABAC policies', function () {
     /** @var \Vima\Core\Tests\ManagerTestCase $this */
-    $manager = new AccessManager();
+    $manager = resolve(AccessManager::class);
 
     // User has permission via role (RBAC)
     $user = new User(1);
@@ -234,43 +201,25 @@ it('integrates RBAC permissions with ABAC policies', function () {
 it('throws exception if registry has no matching policy', function () {
     /** @var \Vima\Core\Tests\ManagerTestCase $this */
 
-    $this->roleRepo = new InMemoryRoleRepository();
-    $this->permissionRepo = new InMemoryPermissionRepository();
-    $this->userPermissionRepo = new InMemoryUserPermissionRepository();
-    $this->userRoleRepo = new InMemoryUserRoleRepository();
-    $this->rolePermissionRepo = new InMemoryRolePermissionRepository();
-
-    $userResolver = new UserResolver(new VimaConfig());
-
-    registerMany([
-        RoleRepositoryInterface::class => $this->roleRepo,
-        PermissionRepositoryInterface::class => $this->permissionRepo,
-        UserPermissionRepositoryInterface::class => $this->userPermissionRepo,
-        UserRoleRepositoryInterface::class => $this->userRoleRepo,
-        RolePermissionRepositoryInterface::class => $this->rolePermissionRepo,
-        UserResolver::class => new UserResolver(new VimaConfig()),
-        PolicyRegistry::class => new PolicyRegistry(),
-        AccessManager::class,
-        SyncService::class => fn(DependencyContainer $c) => new SyncService(
-            roles: $c->get(RoleRepositoryInterface::class),
-            permissions: $c->get(PermissionRepositoryInterface::class)
-        )
-    ]);
+    initDependencies();
 
     expect(resolve(RoleRepositoryInterface::class))->toBeInstanceOf(RoleRepositoryInterface::class);
 
 
-    /* $manager = new AccessManager();
-
+    $manager = resolve(AccessManager::class);
 
     $user = new User(1);
 
-    expect($manager->evaluatePolicy($user, 'posts.update', new stdClass()))->toBeFalse(); */
-})/* ->throws(PolicyNotFoundException::class, 'No policy registered for permission: posts.update') */ ;
+    expect($manager->evaluatePolicy($user, 'posts.update', null, new stdClass()))->toBeFalse();
+})->throws(PolicyNotFoundException::class, 'No policy registered for ability/resource: posts.update');
 
 it('retrieves all roles and permissions', function () {
     /** @var \Vima\Core\Tests\ManagerTestCase $this */
-    $manager = new AccessManager();
+    $manager = resolve(AccessManager::class);
+
+    $rpRepo = resolve(RoleRepositoryInterface::class);
+
+    $rpRepo->deleteAll();
 
     $manager->ensurePermission('perm.1');
     $manager->ensurePermission('perm.2');
@@ -279,6 +228,8 @@ it('retrieves all roles and permissions', function () {
 
     $roles = $manager->getRoles();
     $permissions = $manager->getPermissions();
+
+    var_dump($roles, $permissions);
 
     expect($roles)->toHaveCount(2);
     expect($permissions)->toHaveCount(2);
@@ -292,7 +243,7 @@ it('retrieves all roles and permissions', function () {
 
 it('supports role inheritance', function () {
     /** @var \Vima\Core\Tests\ManagerTestCase $this */
-    $manager = new AccessManager();
+    $manager = resolve(AccessManager::class);
 
     $p1 = $manager->ensurePermission('edit.posts');
     $p2 = $manager->ensurePermission('delete.posts');
@@ -300,11 +251,10 @@ it('supports role inheritance', function () {
     $role1 = Role::define('editor', [$p1]);
     $role2 = Role::define('admin', [$p2]);
 
+    $role2->inherit($role1);
+
     $parentRole = $manager->ensureRole($role1);
     $childRole = $manager->ensureRole($role2);
-
-    // admin inherits from editor
-    $childRole->inherit($parentRole);
 
     $user = new User(1);
     $manager->assignRole($user, $childRole);
@@ -322,7 +272,7 @@ it('supports role inheritance', function () {
 
 it('supports role context', function () {
     /** @var \Vima\Core\Tests\ManagerTestCase $this */
-    $manager = new AccessManager();
+    $manager = resolve(AccessManager::class);
 
     $p1 = $manager->ensurePermission('project.view');
 

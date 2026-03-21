@@ -176,6 +176,32 @@ interface AccessManagerInterface
     public function forbid(object $user, string|Permission $permission): void;
 
     /**
+     * Explicitly deny a permission to a user.
+     * This overrides any allow from roles or direct permissions.
+     *
+     * @param object $user The user object.
+     * @param string|Permission $permission The permission name or entity.
+     */
+    public function deny(object $user, string|Permission $permission): void;
+
+    /**
+     * Remove an explicit denial for a user.
+     *
+     * @param object $user The user object.
+     * @param string|Permission $permission The permission name or entity.
+     */
+    public function undeny(object $user, string|Permission $permission): void;
+
+    /**
+     * Check if a user has an explicit denial for a permission.
+     *
+     * @param object $user The user object.
+     * @param string|Permission $permission The permission name or entity.
+     * @return bool
+     */
+    public function isDenied(object $user, string|Permission $permission, ?string $namespace = null): bool;
+
+    /**
      * Retrieve all roles assigned to the given user.
      *
      * @param object $user The user object.
@@ -205,9 +231,11 @@ interface AccessManagerInterface
      * Retrieve all defined roles in the system.
      *
      * @param string|null $namespace
+     * @param bool $onlyGlobal
+     * @param bool $resolve
      * @return Role[]
      */
-    public function getRoles(?string $namespace = null): array;
+    public function getRoles(?string $namespace = null, bool $onlyGlobal = false, bool $resolve = false): array;
 
     /**
      * Retrieve all defined permissions in the system.

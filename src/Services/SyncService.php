@@ -20,6 +20,12 @@ use Vima\Core\Entities\Permission;
 use Vima\Core\Entities\Sync\Skipped;
 use Vima\Core\Entities\Sync\SyncResponse;
 use Vima\Core\Services\ConfigResolver;
+use Vima\Core\Contracts\EventDispatcherInterface;
+use Vima\Core\Events\Sync\SyncStarted;
+use Vima\Core\Events\Sync\SyncFinished;
+use Vima\Core\Events\DefaultEventDispatcher;
+
+use Vima\Core\Contracts\CacheInterface;
 
 /**
  * Class SyncService
@@ -36,12 +42,17 @@ class SyncService
      * @param RoleRepositoryInterface $roles
      * @param PermissionRepositoryInterface $permissions
      * @param RolePermissionRepositoryInterface|null $rolePermissions
+     * @param EventDispatcherInterface|null $dispatcher
+     * @param CacheInterface|null $cache
      */
     public function __construct(
         private RoleRepositoryInterface $roles,
         private PermissionRepositoryInterface $permissions,
-        private ?RolePermissionRepositoryInterface $rolePermissions = null
+        private ?RolePermissionRepositoryInterface $rolePermissions = null,
+        private ?EventDispatcherInterface $dispatcher = null,
+        private ?CacheInterface $cache = null
     ) {
+        $this->dispatcher ??= new DefaultEventDispatcher();
     }
 
     /**
@@ -67,6 +78,8 @@ class SyncService
      */
     public function sync(VimaConfig $config): SyncResponse
     {
+        $this->dispatcher->dispatch(new SyncStarted($config, $this->refresh));
+
         if ($this->refresh) {
             $this->rolePermissions?->deleteAll();
             $this->roles->deleteAll();
@@ -81,9 +94,10 @@ class SyncService
 
         // Sync permissions first
         foreach ($config->setup->permissions as $permission) {
-            $existing = $this->permissions->findByName($permission->name);
+            $existing = $this->permissions->findByName($permission->name, $permission->namespace);
             if ($existing) {
                 $existing->description = $permission->description;
+                $existing->namespace = $permission->namespace;
                 $this->permissions->save($existing);
             } else {
                 $this->permissions->save($permission);
@@ -93,25 +107,33 @@ class SyncService
         // Sync roles with resolved permissions
         $roles = $resolver->getRoles(); // [roleName => ['description' => ..., 'permissions' => [...]]]
 
+
         foreach ($roles as $roleName => $roleData) {
-            $role = $this->roles->findByName($roleName);
+            $roleNamespace = $roleData['namespace'] ?? null;
+            $role = $this->roles->findByName($roleName, $roleNamespace);
 
             if ($role) {
                 $role->description = $roleData['description'] ?? null;
+                $role->namespace = $roleNamespace;
                 $role->permissions = []; // Reset to sync fresh
+                $role->parents = $roleData['parents'] ?? [];
             } else {
                 $role = new Role(
                     name: $roleName,
+                    namespace: $roleNamespace,
                     permissions: [],
-                    description: $roleData['description'] ?? null
+                    description: $roleData['description'] ?? null,
+                    parents: $roleData['parents'] ?? []
                 );
             }
 
-            foreach ($roleData['permissions'] as $permName) {
-                $permission = $this->permissions->findByName($permName) ?? new Permission($permName);
+            foreach ($roleData['permissions'] as $namespacedPermName) {
+                // The resolver already provides namespaced names (e.g. 'blog:post.edit')
+                $permission = $this->permissions->findByName($namespacedPermName);
 
-                if (!$permission->id) {
-                    $skippedPermissions[$permName] = "Included for role $roleName but not defined in permssions"; 
+                if (!$permission) {
+                    $permission = new Permission(name: $namespacedPermName);
+                    $this->permissions->save($permission);
                 }
 
                 $role->permit($permission);
@@ -122,12 +144,18 @@ class SyncService
 
         $shouldWarn = !empty($skippedPermissions) || !empty($skippedRoles);
 
-        return new SyncResponse(
+        $response = new SyncResponse(
             new Skipped(
                 $skippedRoles,
                 $skippedPermissions
             ),
             $shouldWarn
         );
+
+        $this->dispatcher->dispatch(new SyncFinished($response));
+
+        $this->cache?->clear();
+
+        return $response;
     }
 }

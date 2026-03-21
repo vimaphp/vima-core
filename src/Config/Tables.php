@@ -21,6 +21,8 @@ final class Tables
         public string $rolePermissions = 'role_permissions',
         public string $userRoles = 'user_roles',
         public string $userPermissions = 'user_permissions',
+        public string $roleParents = 'role_parents',
+        public string $userDenies = 'user_denies',
     ) {
     }
 }

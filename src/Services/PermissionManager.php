@@ -15,7 +15,12 @@ use Vima\Core\Contracts\PermissionRepositoryInterface;
 use Vima\Core\Contracts\UserPermissionRepositoryInterface;
 use Vima\Core\Entities\Permission;
 use Vima\Core\Exceptions\PermissionNotFoundException;
+use Vima\Core\Contracts\EventDispatcherInterface;
+use Vima\Core\Events\DefaultEventDispatcher;
+use Vima\Core\Support\Utils;
 use function Vima\Core\resolve;
+
+use Vima\Core\Contracts\CacheInterface;
 
 /**
  * Class PermissionManager
@@ -28,11 +33,19 @@ class PermissionManager
 {
     private PermissionRepositoryInterface $permissions;
     private UserPermissionRepositoryInterface $userPermissions;
+    private ?EventDispatcherInterface $dispatcher;
+    private ?CacheInterface $cache;
 
-    public function __construct()
-    {
-        $this->permissions = resolve(PermissionRepositoryInterface::class);
-        $this->userPermissions = resolve(UserPermissionRepositoryInterface::class);
+    public function __construct(
+        PermissionRepositoryInterface $permissions,
+        UserPermissionRepositoryInterface $userPermissions,
+        ?EventDispatcherInterface $dispatcher = null,
+        ?CacheInterface $cache = null
+    ) {
+        $this->permissions = $permissions;
+        $this->userPermissions = $userPermissions;
+        $this->dispatcher = $dispatcher;
+        $this->cache = $cache;
     }
 
     /**
@@ -60,13 +73,18 @@ class PermissionManager
      */
     public function find(string|Permission $permission, ?string $namespace = null): ?Permission
     {
-        $name = is_string($permission) ? $permission : $permission->name;
-        $id = !is_string($permission) ? $permission->id : null;
-        $permNamespace = !is_string($permission) ? $permission->namespace : $namespace;
+        $id = null;
+        if (is_string($permission)) {
+            [$namespace, $name] = Utils::splitPermission($permission);
+        } else {
+            $id = $permission->id;
+            $name = $permission->name;
+            $namespace = $permission->namespace;
+        }
 
         $permission = $id
             ? $this->permissions->findById($id)
-            : $this->permissions->findByName($name, $permNamespace);
+            : $this->permissions->findByName($name, $namespace);
 
         if (!$permission) {
             throw new PermissionNotFoundException("Permission with the name [$name] not found");

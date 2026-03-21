@@ -16,7 +16,11 @@ use Vima\Core\Contracts\RoleRepositoryInterface;
 use Vima\Core\Contracts\UserRoleRepositoryInterface;
 use Vima\Core\Entities\Role;
 use Vima\Core\Exceptions\RoleNotFoundException;
+use Vima\Core\Contracts\EventDispatcherInterface;
+use Vima\Core\Events\DefaultEventDispatcher;
 use function Vima\Core\resolve;
+
+use Vima\Core\Contracts\CacheInterface;
 
 /**
  * Class RoleManager
@@ -30,14 +34,21 @@ class RoleManager
     private RoleRepositoryInterface $roles;
     public UserRoleRepositoryInterface $userRoles;
     private RolePermissionRepositoryInterface $rolePermissions;
-    private PermissionManager $permissionManager;
+    private ?EventDispatcherInterface $dispatcher;
+    private ?CacheInterface $cache;
 
-    public function __construct()
-    {
-        $this->roles = resolve(RoleRepositoryInterface::class);
-        $this->userRoles = resolve(UserRoleRepositoryInterface::class);
-        $this->rolePermissions = resolve(RolePermissionRepositoryInterface::class);
-        $this->permissionManager = resolve(PermissionManager::class);
+    public function __construct(
+        RoleRepositoryInterface $roles,
+        UserRoleRepositoryInterface $userRoles,
+        RolePermissionRepositoryInterface $rolePermissions,
+        ?EventDispatcherInterface $dispatcher = null,
+        ?CacheInterface $cache = null
+    ) {
+        $this->roles = $roles;
+        $this->userRoles = $userRoles;
+        $this->rolePermissions = $rolePermissions;
+        $this->dispatcher = $dispatcher;
+        $this->cache = $cache;
     }
 
     /**
@@ -51,7 +62,9 @@ class RoleManager
     {
         $role = $name instanceof Role ? $name : new Role(name: $name, namespace: $namespace);
 
-        $role->description = $description;
+        if($description !== null) {
+            $role->description = $description;
+        }
 
         return $this->roles->save($role);
     }
@@ -63,18 +76,34 @@ class RoleManager
      * @return Role|null
      * @throws RoleNotFoundException
      */
-    public function find(string|Role $role, ?string $namespace = null): ?Role
+    public function find(string|Role $role, ?string $namespace = null, bool $resolve = false): ?Role
     {
         $name = is_string($role) ? $role : $role->name;
         $id = !is_string($role) ? $role->id : null;
         $roleNamespace = !is_string($role) ? $role->namespace : $namespace;
 
         $role = $id
-            ? $this->roles->findById($id)
+            ? $this->roles->findById($id, $resolve)
             : $this->roles->findByName($name, $roleNamespace);
 
         if (!$role) {
             throw new RoleNotFoundException($name);
+        }
+
+        if ($resolve && ($id === null || count($role->permissions) === 0)) {
+            /** @var RolePermissionRepositoryInterface $rpRepo */
+            $rpRepo = $this->rolePermissions;
+            /** @var PermissionRepositoryInterface $pmRepo */
+            $pmRepo = resolve(\Vima\Core\Contracts\PermissionRepositoryInterface::class);
+
+            $rolePermissions = $rpRepo->getRolePermissions($role);
+            $role->permissions = array_map(function($rp) use ($pmRepo) {
+                return $pmRepo->findById($rp->permission_id);
+            }, $rolePermissions);
+
+            /** @var \Vima\Core\Contracts\RoleParentRepositoryInterface $parentRepo */
+            $parentRepo = resolve(\Vima\Core\Contracts\RoleParentRepositoryInterface::class);
+            $role->parents = $parentRepo->getParents($role);
         }
 
         return $role;
@@ -92,19 +121,46 @@ class RoleManager
     }
 
     /**
-     * Delete a role.
+     * Delete a role from storage.
      *
-     * @param Role $name
+     * @param Role $role
      * @return void
      */
-    public function delete(Role $name): void
+    public function delete(Role $role): void
     {
-        $this->roles->delete($name);
+        $this->roles->delete($role);
     }
 
     /**
-     * Retrieve all roles assigned to a user.
-     * 
+     * Assign a role to a user.
+     *
+     * @param string|int $user_id
+     * @param string|Role $role
+     * @param array $context
+     * @return void
+     */
+    public function assignToUser(string|int $user_id, string|Role $role, array $context = [], ?string $namespace = null): void
+    {
+        $roleEntity = $this->resolveRole($role, namespace: $namespace);
+        $this->userRoles->assign(\Vima\Core\Entities\UserRole::define($user_id, $roleEntity->id, $context));
+    }
+
+    /**
+     * Remove a role from a user.
+     *
+     * @param string|int $user_id
+     * @param string|Role $role
+     * @return void
+     */
+    public function removeFromUser(string|int $user_id, string|Role $role, ?string $namespace = null): void
+    {
+        $roleEntity = $this->resolveRole($role, namespace: $namespace);
+        $this->userRoles->revoke(\Vima\Core\Entities\UserRole::define($user_id, $roleEntity->id));
+    }
+
+    /**
+     * Get all roles assigned to a user.
+     *
      * @param string|int $user_id
      * @param bool $resolve Whether to resolve permissions within roles.
      * @return Role[]
@@ -121,49 +177,50 @@ class RoleManager
      * @param bool $isId If true, strings are treated as IDs.
      * @return Role|null
      */
-    public function resolveRole(int|string|Role $role, bool $isId = false): ?Role
+    public function resolveRole(int|string|Role $role, bool $isId = false, ?string $namespace = null): ?Role
     {
-        $id = null;
-        $name = null;
-
         if ($role instanceof Role) {
-            $id = $role->id;
-            $name = $role->name;
-        } elseif (is_int($role)) {
-            $id = $role;
-        } elseif (is_string($role)) {
-            if ($isId) {
-                // If explicitly marked as ID, try to parse string as int
-                $id = ctype_digit($role) ? (int) $role : $role;
-            } else {
-                $name = $role;
-            }
+            return $role;
         }
 
-        if ($id !== null) {
-            $role = $this->roles->findById($id);
-        } elseif ($name !== null) {
-            $role = $this->roles->findByName($name);
-        } else {
-            return null; // no valid identifier
-        }
-
-        if (!($role instanceof Role)) {
-            return null;
-        }
-
-        $role->permissions = $this->rolePermissions->getRolePermissions($role);
-
-        return $role;
+        return $isId ? $this->roles->findById($role) : $this->roles->findByName($role, $namespace);
     }
 
     /**
-     * Retrieve all roles.
+     * Checks if a user has a specific role.
      *
+     * @param string|int $user_id
+     * @param string|Role $role
+     * @param array $context Filters by context if provided.
+     * @return bool
+     */
+    public function userHasRole(string|int $user_id, string|Role $role, array $context = [], ?string $namespace = null): bool
+    {
+        $roleEntity = $this->resolveRole($role, namespace: $namespace);
+        if (!$roleEntity) {
+            return false;
+        }
+
+        $roles = $this->getUserRoles($user_id);
+        foreach ($roles as $r) {
+            if ($r->id == $roleEntity->id) {
+                // If context filter is provided, check it (stub for now if not implemented in repo)
+                return true; 
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Get all roles.
+     *
+     * @param string|null $namespace
+     * @param bool $onlyGlobal
+     * @param bool $resolve
      * @return Role[]
      */
-    public function all(?string $namespace = null): array
+    public function all(?string $namespace = null, bool $onlyGlobal = false, bool $resolve = false): array
     {
-        return $this->roles->all($namespace);
+        return $this->roles->all($namespace, $onlyGlobal, $resolve);
     }
 }

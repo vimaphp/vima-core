@@ -4,6 +4,8 @@ namespace Vima\Core\Tests;
 use Vima\Core\Contracts\RolePermissionRepositoryInterface;
 use Vima\Core\Contracts\UserPermissionRepositoryInterface;
 use Vima\Core\Contracts\UserRoleRepositoryInterface;
+use Vima\Core\Contracts\RoleParentRepositoryInterface;
+use Vima\Core\Tests\Fixtures\MockEventDispatcher;
 
 final class ManagerTestCase extends TestCase
 {
@@ -52,4 +54,6 @@ final class ManagerTestCase extends TestCase
     public RolePermissionRepositoryInterface $rolePermissionRepo;
 
     public UserRoleRepositoryInterface $userRoleRepo;
+    public RoleParentRepositoryInterface $roleParentRepo;
+    public MockEventDispatcher $dispatcher;
 }

@@ -23,13 +23,6 @@ use Vima\Core\Entities\Permission;
  */
 interface PermissionRepositoryInterface
 {
-    /**
-     * Find a permission by its unique name, optionally within a namespace.
-     *
-     * @param string $name
-     * @param string|null $namespace
-     * @return Permission|null
-     */
     public function findByName(string $name, ?string $namespace = null): ?Permission;
 
     /**
@@ -44,9 +37,10 @@ interface PermissionRepositoryInterface
      * Retrieve all permissions, optionally filtered by namespace.
      * 
      * @param string|null $namespace
+     * @param bool $onlyGlobal
      * @return Permission[]
      */
-    public function all(?string $namespace = null): array;
+    public function all(?string $namespace = null, bool $onlyGlobal = false): array;
 
     /**
      * Persist or update a permission.

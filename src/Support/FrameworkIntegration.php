@@ -100,11 +100,30 @@ class FrameworkIntegration
             ->addPrimaryKey('id')
             ->addForeignKey(new ForeignKey($cols->userPermissions->permissionId, $tables->permissions, 'id', 'CASCADE', 'CASCADE'));
 
+        $roleParentsTable = (new Table($tables->roleParents))
+            ->addField(new Field('id', 'integer', unsigned: true, autoIncrement: true))
+            ->addField(new Field($cols->roleParents->roleId, 'integer', unsigned: true))
+            ->addField(new Field($cols->roleParents->parentId, 'integer', unsigned: true))
+            ->addPrimaryKey('id')
+            ->addForeignKey(new ForeignKey($cols->roleParents->roleId, $tables->roles, 'id', 'CASCADE', 'CASCADE'))
+            ->addForeignKey(new ForeignKey($cols->roleParents->parentId, $tables->roles, 'id', 'CASCADE', 'CASCADE'));
+
+        $userDeniesTable = (new Table($tables->userDenies))
+            ->addField(new Field('id', 'integer', unsigned: true, autoIncrement: true))
+            ->addField(new Field($cols->userDenies->userId, 'string', length: 50))
+            ->addField(new Field($cols->userDenies->permissionId, 'integer', unsigned: true))
+            ->addField(new Field('created_at', 'datetime', nullable: true))
+            ->addPrimaryKey('id')
+            ->addUniqueKey([$cols->userDenies->userId, $cols->userDenies->permissionId])
+            ->addForeignKey(new ForeignKey($cols->userDenies->permissionId, $tables->permissions, 'id', 'CASCADE', 'CASCADE'));
+
         $schema->addTable($rolesTable)
             ->addTable($permissionsTable)
             ->addTable($rolePermissionsTable)
             ->addTable($userRolesTable)
-            ->addTable($userPermissionsTable);
+            ->addTable($userPermissionsTable)
+            ->addTable($roleParentsTable)
+            ->addTable($userDeniesTable);
 
         return $schema;
     }

@@ -2,7 +2,9 @@
 
 use Vima\Core\Config\Setup;
 use Vima\Core\Config\VimaConfig;
+use Vima\Core\Contracts\EventDispatcherInterface;
 use Vima\Core\Contracts\PermissionRepositoryInterface;
+use Vima\Core\Contracts\PolicyRegistryInterface;
 use Vima\Core\Contracts\RolePermissionRepositoryInterface;
 use Vima\Core\Contracts\RoleRepositoryInterface;
 use Vima\Core\Contracts\UserPermissionRepositoryInterface;
@@ -16,16 +18,21 @@ use Vima\Core\Tests\Fixtures\Storage\InMemoryRolePermissionRepository;
 use Vima\Core\Tests\Fixtures\Storage\InMemoryRoleRepository;
 use Vima\Core\Tests\Fixtures\Storage\InMemoryUserPermissionRepository;
 use Vima\Core\Tests\Fixtures\Storage\InMemoryUserRoleRepository;
-use Vima\Core\Tests\Fixtures\User;
 use Vima\Core\Services\AccessManager;
 use Vima\Core\Entities\{Role, Permission};
 use Vima\Core\Exceptions\AccessDeniedException;
 use Vima\Core\Services\PolicyRegistry;
+use Vima\Core\Contracts\RoleParentRepositoryInterface;
+use Vima\Core\Events\DefaultEventDispatcher;
+use Vima\Core\Tests\Fixtures\User;
+use Vima\Core\Tests\Fixtures\MockEventDispatcher;
+use Vima\Core\Tests\Fixtures\Storage\InMemoryRoleParentRepository;
 use function Vima\Core\registerMany;
 use function Vima\Core\resolve;
 
 beforeEach(function () {
     /** @var \Vima\Core\Tests\AccessFlowTestCase $this */
+    initDependencies();
 
     // Setup roles and permissions
     $adminRole = Role::define(name: 'admin', permissions: [
@@ -53,23 +60,12 @@ beforeEach(function () {
         $viewerRole->permissions
     );
 
-    $config = new VimaConfig(
-        setup: new Setup(
-            roles: $this->roles,
-            permissions: $this->permissions
-        )
-    );
-
-    $this->roleRepo = new InMemoryRoleRepository();
-    $this->permissionRepo = new InMemoryPermissionRepository();
-    $this->userPermissionRepo = new InMemoryUserPermissionRepository();
-    $this->userRoleRepo = new InMemoryUserRoleRepository();
-    $this->rolePermissionRepo = new InMemoryRolePermissionRepository();
-    $userResolver = new UserResolver(new VimaConfig());
-
+    $setup = resolve(Setup::class);
+    $setup->roles = $this->roles;
+    $setup->permissions = $this->permissions;
 
     // Setup Policy Registry
-    $this->policyRegistry = new PolicyRegistry();
+    $this->policyRegistry = resolve(PolicyRegistryInterface::class);
     $this->policyRegistry->register('posts.update', function (User $user, $post) {
         // Editors and Admins can update any post
         foreach (resolve(AccessManager::class)->getUserRoles($user) as $role) {
@@ -80,33 +76,19 @@ beforeEach(function () {
         return false;
     });
 
-    registerMany([
-        RoleRepositoryInterface::class => $this->roleRepo,
-        PermissionRepositoryInterface::class => $this->permissionRepo,
-        UserPermissionRepositoryInterface::class => new InMemoryUserPermissionRepository(),
-        UserRoleRepositoryInterface::class => new InMemoryUserRoleRepository(),
-        RolePermissionRepositoryInterface::class => new InMemoryRolePermissionRepository(),
-        UserResolver::class => $userResolver,
-        PolicyRegistry::class => $this->policyRegistry,
-        AccessManager::class,
-        SyncService::class => fn(DependencyContainer $c) => new SyncService(
-            roles: $c->get(RoleRepositoryInterface::class),
-            permissions: $c->get(PermissionRepositoryInterface::class)
-        )
-    ]);
-
     $this->manager = resolve(AccessManager::class);
 
     // two way to start off here
     // Both should work well
 
     // 1. Use the SyncSevice
+    $config = resolve(VimaConfig::class);
     resolve(SyncService::class)->sync($config);
 
     // 2. Add the roles using the manager->addRole
-    /* foreach ($this->roles as $role) {
+    foreach ($this->roles as $role) {
         $this->manager->ensureRole($role);
-    } */
+    }
 
     // Fake users
     $this->alice = new User(1);

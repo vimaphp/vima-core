@@ -31,4 +31,20 @@ final class Setup
         public array $permissions = [],
     ) {
     }
+
+    /**
+     * Merge roles and permissions from an array into the current setup.
+     * 
+     * @param array $data ['roles' => Role[], 'permissions' => Permission[]]
+     */
+    public function merge(array $data): void
+    {
+        if (isset($data['roles'])) {
+            $this->roles = array_merge($this->roles, $data['roles']);
+        }
+
+        if (isset($data['permissions'])) {
+            $this->permissions = array_merge($this->permissions, $data['permissions']);
+        }
+    }
 }

@@ -39,13 +39,19 @@ class VimaConfig
             permissions: new PermissionColumns(),
             userRoles: new UserRoleColumns(),
             rolePermissions: new RolePermissionColumns(),
-            userPermissions: new UserPermissionColumns()
+            userPermissions: new UserPermissionColumns(),
+            roleParents: new RoleParentColumns(),
+            userDenies: new UserDenyColumns()
         ),
         public Setup $setup = new Setup(),
         public UserMethods $userMethods = new UserMethods(),
 
         public ?Closure $registerPolicies = null,
         public ?Closure $userResolver = null,
+
+        public bool $cacheEnabled = false,
+        public int $cacheTTL = 3600,
+        public string $cachePrefix = 'vima_',
     ) {
         if ($this->registerPolicies) {
             ($this->registerPolicies)();
