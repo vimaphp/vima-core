@@ -38,6 +38,7 @@ class Permission
         public ?string $namespace = null,
         public ?string $description = null,
         public int|string|null $id = null,
+        public bool $denied = false,
     ) {
         if (str_contains($this->name, ':')) {
             [$ns, $n] = explode(':', $this->name, 2);
@@ -53,9 +54,11 @@ class Permission
      * @param string|null $description
      * @return self
      */
-    public static function define(string $name, ?string $description = null, ?string $namespace = null): self
+    public static function define(string $name, ?string $description = null, ?string $namespace = null, bool $denied = false): self
     {
-        return new self(name: $name, namespace: $namespace, description: $description);
+        $perm = new self(name: $name, namespace: $namespace, description: $description);
+        $perm->denied = $denied;
+        return $perm;
     }
 
     /**

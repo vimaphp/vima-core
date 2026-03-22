@@ -13,6 +13,7 @@ declare(strict_types=1);
 namespace Vima\Core\Contracts;
 
 use Vima\Core\Entities\Permission;
+use Vima\Core\Entities\UserDeny;
 
 /**
  * Interface UserDenyRepositoryInterface
@@ -28,7 +29,7 @@ interface UserDenyRepositoryInterface
      * @param string|int $permission_id
      * @return void
      */
-    public function add(string|int $user_id, string|int $permission_id): void;
+    public function add(string|int $user_id, string|int $permission_id, ?string $reason = null): void;
 
     /**
      * Remove a denial for a user.
@@ -52,7 +53,7 @@ interface UserDenyRepositoryInterface
      * Get all direct permission denials for a user.
      *
      * @param string|int $user_id
-     * @return Permission[]
+     * @return UserDeny[]
      */
     public function getDeniedPermissions(string|int $user_id): array;
 }

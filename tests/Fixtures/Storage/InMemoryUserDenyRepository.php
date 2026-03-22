@@ -19,7 +19,7 @@ class InMemoryUserDenyRepository implements UserDenyRepositoryInterface
     /** @var array<string|int, array<string|int, bool>> */
     private array $denials = [];
 
-    public function add(string|int $user_id, string|int $permission_id): void
+    public function add(string|int $user_id, string|int $permission_id, ?string $reason = null): void
     {
         $uid = (string) $user_id;
         $pid = (string) $permission_id;

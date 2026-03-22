@@ -12,6 +12,10 @@ declare(strict_types=1);
 
 namespace Vima\Core\Entities;
 
+use Vima\Core\Contracts\AccessManagerInterface;
+use Vima\Core\Contracts\RoleRepositoryInterface;
+use function Vima\Core\resolve;
+
 /**
  * Class RoleParent
  * 
@@ -45,5 +49,43 @@ class RoleParent
     public static function define(int|string $role_id, int|string $parent_id): self
     {
         return new self($role_id, $parent_id);
+    }
+
+    public function save(): self
+    {
+        /** @var AccessManagerInterface $manager */
+        $manager = resolve(AccessManagerInterface::class);
+        return $manager->updateRoleParent($this);
+    }
+
+    public function delete(): void
+    {
+        /** @var AccessManagerInterface $manager */
+        $manager = resolve(AccessManagerInterface::class);
+        $manager->deleteRoleParent($this);
+    }
+
+    /**
+     * Get the child role entity.
+     *
+     * @return Role
+     */
+    public function getRole(): Role
+    {
+        /** @var RoleRepositoryInterface $repo */
+        $repo = resolve(RoleRepositoryInterface::class);
+        return $repo->findById($this->role_id);
+    }
+
+    /**
+     * Get the parent role entity.
+     *
+     * @return Role
+     */
+    public function getParent(): Role
+    {
+        /** @var RoleRepositoryInterface $repo */
+        $repo = resolve(RoleRepositoryInterface::class);
+        return $repo->findById($this->parent_id);
     }
 }

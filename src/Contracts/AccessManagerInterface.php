@@ -14,6 +14,11 @@ namespace Vima\Core\Contracts;
 
 use Vima\Core\Entities\Permission;
 use Vima\Core\Entities\Role;
+use Vima\Core\Entities\UserDeny;
+use Vima\Core\Entities\UserRole;
+use Vima\Core\Entities\UserPermission;
+use Vima\Core\Entities\RolePermission;
+use Vima\Core\Entities\RoleParent;
 
 /**
  * Interface AccessManagerInterface
@@ -182,7 +187,7 @@ interface AccessManagerInterface
      * @param object $user The user object.
      * @param string|Permission $permission The permission name or entity.
      */
-    public function deny(object $user, string|Permission $permission): void;
+    public function deny(object $user, string|Permission $permission, ?string $reason = null): void;
 
     /**
      * Remove an explicit denial for a user.
@@ -200,6 +205,14 @@ interface AccessManagerInterface
      * @return bool
      */
     public function isDenied(object $user, string|Permission $permission, ?string $namespace = null): bool;
+    
+    /**
+     * Retrieve all permissions explicitly denied for the user.
+     *
+     * @param object $user The user object.
+     * @return UserDeny[]
+     */
+    public function getDeniedPermissions(object $user): array;
 
     /**
      * Retrieve all roles assigned to the given user.
@@ -241,9 +254,10 @@ interface AccessManagerInterface
      * Retrieve all defined permissions in the system.
      *
      * @param string|null $namespace
+     * @param object|null $user Optional user to check denial status for.
      * @return Permission[]
      */
-    public function getPermissions(?string $namespace = null): array;
+    public function getPermissions(?string $namespace = null, ?object $user = null): array;
 
     public function govern(string $action, callable $callback): void;
 
@@ -264,5 +278,20 @@ interface AccessManagerInterface
      * @param Permission[]|null $permissions Array of specific permissions to sync to.
      */
     public function reconcileAccess(object $user, array $roles, ?array $permissions = null): void;
+
+    public function updateUserRole(UserRole $userRole): UserRole;
+    public function deleteUserRole(UserRole $userRole): void;
+    
+    public function updateUserPermission(UserPermission $userPermission): UserPermission;
+    public function deleteUserPermission(UserPermission $userPermission): void;
+    
+    public function updateUserDeny(UserDeny $userDeny): UserDeny;
+    public function deleteUserDeny(UserDeny $userDeny): void;
+    
+    public function updateRolePermission(RolePermission $rolePermission): RolePermission;
+    public function deleteRolePermission(RolePermission $rolePermission): void;
+    
+    public function updateRoleParent(RoleParent $roleParent): RoleParent;
+    public function deleteRoleParent(RoleParent $roleParent): void;
 }
 

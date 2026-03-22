@@ -229,8 +229,6 @@ it('retrieves all roles and permissions', function () {
     $roles = $manager->getRoles();
     $permissions = $manager->getPermissions();
 
-    var_dump($roles, $permissions);
-
     expect($roles)->toHaveCount(2);
     expect($permissions)->toHaveCount(2);
 
