@@ -112,6 +112,7 @@ class FrameworkIntegration
             ->addField(new Field('id', 'integer', unsigned: true, autoIncrement: true))
             ->addField(new Field($cols->userDenies->userId, 'string', length: 50))
             ->addField(new Field($cols->userDenies->permissionId, 'integer', unsigned: true))
+            ->addField(new Field($cols->userDenies->reason, 'text', nullable: true))
             ->addField(new Field('created_at', 'datetime', nullable: true))
             ->addPrimaryKey('id')
             ->addUniqueKey([$cols->userDenies->userId, $cols->userDenies->permissionId])
