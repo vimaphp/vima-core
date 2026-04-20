@@ -26,6 +26,7 @@ use Vima\Core\Events\Sync\SyncFinished;
 use Vima\Core\Events\DefaultEventDispatcher;
 
 use Vima\Core\Contracts\CacheInterface;
+use Vima\Core\Support\Utils;
 
 /**
  * Class SyncService
@@ -91,10 +92,15 @@ class SyncService
 
         // Validate & normalize using ConfigResolver
         $resolver = new ConfigResolver($config);
+        // Sync roles with resolved permissions
+        $roles = $resolver->getRoles(); // [roleName => ['description' => ..., 'permissions' => [...]]]
+        $syncedRoles = [];
 
         // Sync permissions first
         foreach ($config->setup->permissions as $permission) {
-            $existing = $this->permissions->findByName($permission->name, $permission->namespace);
+            [$permNamespace, $permName] = Utils::splitPermission($permission->name);
+            $permNamespace ??= $permission->namespace;
+            $existing = $this->permissions->findByName($permName, $permNamespace);
             if ($existing) {
                 $existing->description = $permission->description;
                 $existing->namespace = $permission->namespace;
@@ -104,19 +110,20 @@ class SyncService
             }
         }
 
-        // Sync roles with resolved permissions
-        $roles = $resolver->getRoles(); // [roleName => ['description' => ..., 'permissions' => [...]]]
-
-
         foreach ($roles as $roleName => $roleData) {
-            $roleNamespace = $roleData['namespace'] ?? null;
+            [$roleNamespace, $roleName] = Utils::splitPermission($roleName);
+            $roleNamespace ??= $roleData['namespace'] ?? null;
             $role = $this->roles->findByName($roleName, $roleNamespace);
+            $namespacedRoleName = $roleNamespace ? "{$roleNamespace}:{$roleName}" : $roleName;
 
             if ($role) {
                 $role->description = $roleData['description'] ?? null;
                 $role->namespace = $roleNamespace;
-                $role->permissions = []; // Reset to sync fresh
                 $role->parents = $roleData['parents'] ?? [];
+
+                if (!in_array($namespacedRoleName, $syncedRoles)) {
+                    $role->permissions = []; // reset for resync
+                }
             } else {
                 $role = new Role(
                     name: $roleName,
@@ -128,11 +135,11 @@ class SyncService
             }
 
             foreach ($roleData['permissions'] as $namespacedPermName) {
-                // The resolver already provides namespaced names (e.g. 'blog:post.edit')
-                $permission = $this->permissions->findByName($namespacedPermName);
+                [$permNamespace, $permName] = Utils::splitPermission($namespacedPermName);
+                $permission = $this->permissions->findByName($permName, $permNamespace);
 
                 if (!$permission) {
-                    $permission = new Permission(name: $namespacedPermName);
+                    $permission = new Permission(name: $permName, namespace: $permNamespace);
                     $this->permissions->save($permission);
                 }
 
@@ -140,6 +147,8 @@ class SyncService
             }
 
             $this->roles->save($role);
+
+            $syncedRoles[] = $namespacedRoleName;
         }
 
         $shouldWarn = !empty($skippedPermissions) || !empty($skippedRoles);

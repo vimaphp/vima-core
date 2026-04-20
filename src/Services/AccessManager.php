@@ -444,7 +444,10 @@ class AccessManager implements AccessManagerInterface
             // check for role by name
             if (is_string($role)) {
                 [$role, $roleNamespace] = $this->resolveNamespace($role);
+            } else {
+                $roleNamespace = $role->namespace;
             }
+
 
             try {
                 $roleRecord = $this->roleManager->find($role, $roleNamespace);

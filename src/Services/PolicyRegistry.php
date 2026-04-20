@@ -18,6 +18,7 @@ use Vima\Core\Events\DefaultEventDispatcher;
 use Vima\Core\Events\Policy\PolicyRegistered;
 use Vima\Core\Exceptions\PolicyNotFoundException;
 use Vima\Core\Exceptions\PolicyMethodNotFoundException;
+use Vima\Core\Support\Utils;
 
 /**
  * Class PolicyRegistry
@@ -100,16 +101,18 @@ class PolicyRegistry implements PolicyRegistryInterface
      */
     public function evaluate(object $user, string $ability, ?string $namespace = null, ...$arguments): bool
     {
+        [$permNamespace, $permName] = Utils::splitPermission($ability);
+        $permNamespace ??= $namespace;
         // 1. Try class-based policy if resource is provided
         if (!empty($arguments) && is_object($arguments[0])) {
             $resource = $arguments[0];
             $resourceClass = get_class($resource);
-            $arguments[] = $ability; // provide the ability to the policy method
-            $arguments[] = $namespace; // provide the namespace to the policy method
+            $arguments[] = $permName; // provide the ability to the policy method
+            $arguments[] = $permNamespace; // provide the namespace to the policy method
 
             if (isset($this->policiesClasses[$resourceClass])) {
                 $policyClass = $this->policiesClasses[$resourceClass];
-                $method = $this->resolveMethodName($ability);
+                $method = $this->resolveMethodName($permName);
 
                 $policy = new $policyClass();
                 if (method_exists($policy, $method)) {
@@ -124,7 +127,7 @@ class PolicyRegistry implements PolicyRegistryInterface
 
 
         // 2. Fallback to callback-based policies
-        if (!isset($this->policies[$ability])) {
+        if (!isset($this->policies[$permName])) {
             return false;
         }
 

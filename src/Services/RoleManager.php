@@ -11,10 +11,13 @@
 
 namespace Vima\Core\Services;
 
+use Vima\Core\Contracts\PermissionRepositoryInterface;
+use Vima\Core\Contracts\RoleParentRepositoryInterface;
 use Vima\Core\Contracts\RolePermissionRepositoryInterface;
 use Vima\Core\Contracts\RoleRepositoryInterface;
 use Vima\Core\Contracts\UserRoleRepositoryInterface;
 use Vima\Core\Entities\Role;
+use Vima\Core\Entities\UserRole;
 use Vima\Core\Exceptions\RoleNotFoundException;
 use Vima\Core\Contracts\EventDispatcherInterface;
 use Vima\Core\Events\DefaultEventDispatcher;
@@ -62,7 +65,7 @@ class RoleManager
     {
         $role = $name instanceof Role ? $name : new Role(name: $name, namespace: $namespace);
 
-        if($description !== null) {
+        if ($description !== null) {
             $role->description = $description;
         }
 
@@ -94,15 +97,15 @@ class RoleManager
             /** @var RolePermissionRepositoryInterface $rpRepo */
             $rpRepo = $this->rolePermissions;
             /** @var PermissionRepositoryInterface $pmRepo */
-            $pmRepo = resolve(\Vima\Core\Contracts\PermissionRepositoryInterface::class);
+            $pmRepo = resolve(PermissionRepositoryInterface::class);
 
             $rolePermissions = $rpRepo->getRolePermissions($role);
-            $role->permissions = array_map(function($rp) use ($pmRepo) {
+            $role->permissions = array_map(function ($rp) use ($pmRepo) {
                 return $pmRepo->findById($rp->permission_id);
             }, $rolePermissions);
 
-            /** @var \Vima\Core\Contracts\RoleParentRepositoryInterface $parentRepo */
-            $parentRepo = resolve(\Vima\Core\Contracts\RoleParentRepositoryInterface::class);
+            /** @var RoleParentRepositoryInterface $parentRepo */
+            $parentRepo = resolve(RoleParentRepositoryInterface::class);
             $role->parents = $parentRepo->getParents($role);
         }
 
@@ -142,7 +145,7 @@ class RoleManager
     public function assignToUser(string|int $user_id, string|Role $role, array $context = [], ?string $namespace = null): void
     {
         $roleEntity = $this->resolveRole($role, namespace: $namespace);
-        $this->userRoles->assign(\Vima\Core\Entities\UserRole::define($user_id, $roleEntity->id, $context));
+        $this->userRoles->assign(UserRole::define($user_id, $roleEntity->id, $context));
     }
 
     /**
@@ -155,7 +158,7 @@ class RoleManager
     public function removeFromUser(string|int $user_id, string|Role $role, ?string $namespace = null): void
     {
         $roleEntity = $this->resolveRole($role, namespace: $namespace);
-        $this->userRoles->revoke(\Vima\Core\Entities\UserRole::define($user_id, $roleEntity->id));
+        $this->userRoles->revoke(UserRole::define($user_id, $roleEntity->id));
     }
 
     /**
@@ -205,7 +208,7 @@ class RoleManager
         foreach ($roles as $r) {
             if ($r->id == $roleEntity->id) {
                 // If context filter is provided, check it (stub for now if not implemented in repo)
-                return true; 
+                return true;
             }
         }
         return false;
