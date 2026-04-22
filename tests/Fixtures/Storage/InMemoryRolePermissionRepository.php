@@ -3,11 +3,8 @@ declare(strict_types=1);
 
 namespace Vima\Core\Tests\Fixtures\Storage;
 
-use Vima\Core\Contracts\PermissionRepositoryInterface;
 use Vima\Core\Contracts\RolePermissionRepositoryInterface;
 use Vima\Core\Entities\{Role, Permission, RolePermission};
-use Vima\Core\DependencyContainer;
-use function Vima\Core\resolve;
 
 class InMemoryRolePermissionRepository implements RolePermissionRepositoryInterface
 {

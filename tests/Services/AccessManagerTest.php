@@ -2,6 +2,7 @@
 
 use Vima\Core\Contracts\PolicyRegistryInterface;
 use Vima\Core\Contracts\RoleRepositoryInterface;
+use Vima\Core\DTOs\AccessContext;
 use Vima\Core\Exceptions\PolicyNotFoundException;
 use Vima\Core\Services\AccessManager;
 use Vima\Core\Entities\{Role, Permission};
@@ -116,9 +117,9 @@ it('supports class-based policy registration and evaluation', function () {
         {
             return AccessTestPost::class;
         }
-        public function canUpdate(User $u, AccessTestPost $p, string $permission, $namespace): bool
+        public function canUpdate(AccessContext $ctx, AccessTestPost $p): bool
         {
-            return $u->vimaGetId() === $p->ownerId;
+            return $ctx->owns($p, 'ownerId');
         }
     }
 
@@ -159,9 +160,9 @@ it('integrates RBAC permissions with ABAC policies', function () {
         {
             return HybridPost::class;
         }
-        public function canEdit(User $u, HybridPost $p): bool
+        public function canEdit(AccessContext $ctx, HybridPost $p): bool
         {
-            return $u->vimaGetId() === $p->ownerId;
+            return $ctx->owns($p, 'ownerId');
         }
     }
     $manager->registerPolicy(HybridPost::class, HybridPolicy::class);

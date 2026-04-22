@@ -14,11 +14,9 @@ namespace Vima\Core\Services;
 use Vima\Core\Contracts\PermissionRepositoryInterface;
 use Vima\Core\Contracts\UserPermissionRepositoryInterface;
 use Vima\Core\Entities\Permission;
-use Vima\Core\Exceptions\PermissionNotFoundException;
+use Vima\Core\Events\Repository\RepositoryAction;
 use Vima\Core\Contracts\EventDispatcherInterface;
-use Vima\Core\Events\DefaultEventDispatcher;
 use Vima\Core\Support\Utils;
-use function Vima\Core\resolve;
 
 use Vima\Core\Contracts\CacheInterface;
 
@@ -31,21 +29,12 @@ use Vima\Core\Contracts\CacheInterface;
  */
 class PermissionManager
 {
-    private PermissionRepositoryInterface $permissions;
-    private UserPermissionRepositoryInterface $userPermissions;
-    private ?EventDispatcherInterface $dispatcher;
-    private ?CacheInterface $cache;
-
     public function __construct(
-        PermissionRepositoryInterface $permissions,
-        UserPermissionRepositoryInterface $userPermissions,
-        ?EventDispatcherInterface $dispatcher = null,
-        ?CacheInterface $cache = null
+        private PermissionRepositoryInterface $permissions,
+        private UserPermissionRepositoryInterface $userPermissions,
+        private EventDispatcherInterface $dispatcher,
+        private CacheInterface $cache,
     ) {
-        $this->permissions = $permissions;
-        $this->userPermissions = $userPermissions;
-        $this->dispatcher = $dispatcher;
-        $this->cache = $cache;
     }
 
     /**
@@ -69,7 +58,6 @@ class PermissionManager
      *
      * @param string|Permission $permission
      * @return Permission|null
-     * @throws PermissionNotFoundException
      */
     public function find(string|Permission $permission, ?string $namespace = null): ?Permission
     {
@@ -85,10 +73,6 @@ class PermissionManager
         $permission = $id
             ? $this->permissions->findById($id)
             : $this->permissions->findByName($name, $namespace);
-
-        if (!$permission) {
-            throw new PermissionNotFoundException("Permission with the name [$name] not found");
-        }
 
         return $permission;
     }
@@ -131,7 +115,24 @@ class PermissionManager
      */
     public function save(Permission $permission): Permission
     {
-        return $this->permissions->save($permission);
+        $existing = $this->find($permission);
+        $permission = $this->permissions->save($permission);
+
+        if ($existing) {
+             $this->dispatcher?->dispatch(new RepositoryAction(
+                action: RepositoryAction::ACTION_UPDATED,
+                entityClass: Permission::class,
+                payload: $permission,
+            ));
+        } else {
+            $this->dispatcher?->dispatch(new RepositoryAction(
+                action: RepositoryAction::ACTION_CREATED,
+                entityClass: Permission::class,
+                payload: $permission,
+            ));
+        }
+
+        return $permission;
     }
 
     /**
@@ -142,5 +143,15 @@ class PermissionManager
     public function all(?string $namespace = null): array
     {
         return $this->permissions->all($namespace);
+    }
+
+    public function findByName(string $name, ?string $namespace = null): ?Permission
+    {
+        return $this->permissions->findByName($name, $namespace);
+    }
+
+    public function deleteAll(): void
+    {
+        $this->permissions->deleteAll();
     }
 }

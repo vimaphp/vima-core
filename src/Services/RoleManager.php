@@ -11,16 +11,19 @@
 
 namespace Vima\Core\Services;
 
+use Vima\Core\Contracts\AccessManagerInterface;
 use Vima\Core\Contracts\PermissionRepositoryInterface;
 use Vima\Core\Contracts\RoleParentRepositoryInterface;
 use Vima\Core\Contracts\RolePermissionRepositoryInterface;
 use Vima\Core\Contracts\RoleRepositoryInterface;
 use Vima\Core\Contracts\UserRoleRepositoryInterface;
 use Vima\Core\Entities\Role;
+use Vima\Core\Entities\RoleParent;
+use Vima\Core\Entities\RolePermission;
 use Vima\Core\Entities\UserRole;
+use Vima\Core\Events\Repository\RepositoryAction;
 use Vima\Core\Exceptions\RoleNotFoundException;
 use Vima\Core\Contracts\EventDispatcherInterface;
-use Vima\Core\Events\DefaultEventDispatcher;
 use function Vima\Core\resolve;
 
 use Vima\Core\Contracts\CacheInterface;
@@ -34,24 +37,16 @@ use Vima\Core\Contracts\CacheInterface;
  */
 class RoleManager
 {
-    private RoleRepositoryInterface $roles;
-    public UserRoleRepositoryInterface $userRoles;
-    private RolePermissionRepositoryInterface $rolePermissions;
-    private ?EventDispatcherInterface $dispatcher;
-    private ?CacheInterface $cache;
 
     public function __construct(
-        RoleRepositoryInterface $roles,
-        UserRoleRepositoryInterface $userRoles,
-        RolePermissionRepositoryInterface $rolePermissions,
-        ?EventDispatcherInterface $dispatcher = null,
-        ?CacheInterface $cache = null
+        private RoleRepositoryInterface $roles,
+        private PermissionRepositoryInterface $permissions,
+        private RoleParentRepositoryInterface $roleParents,
+        private UserRoleRepositoryInterface $userRoles,
+        private RolePermissionRepositoryInterface $rolePermissions,
+        private EventDispatcherInterface $dispatcher,
+        private CacheInterface $cache,
     ) {
-        $this->roles = $roles;
-        $this->userRoles = $userRoles;
-        $this->rolePermissions = $rolePermissions;
-        $this->dispatcher = $dispatcher;
-        $this->cache = $cache;
     }
 
     /**
@@ -63,13 +58,15 @@ class RoleManager
      */
     public function create(string|Role $name, ?string $description = null, ?string $namespace = null): Role
     {
-        $role = $name instanceof Role ? $name : new Role(name: $name, namespace: $namespace);
+        $role = $name instanceof Role
+            ? $name
+            : new Role(name: $name, namespace: $namespace);
 
         if ($description !== null) {
             $role->description = $description;
         }
 
-        return $this->roles->save($role);
+        return $this->save($role);
     }
 
     /**
@@ -77,7 +74,6 @@ class RoleManager
      *
      * @param string|Role $role Role name or instance.
      * @return Role|null
-     * @throws RoleNotFoundException
      */
     public function find(string|Role $role, ?string $namespace = null, bool $resolve = false): ?Role
     {
@@ -86,27 +82,11 @@ class RoleManager
         $roleNamespace = !is_string($role) ? $role->namespace : $namespace;
 
         $role = $id
-            ? $this->roles->findById($id, $resolve)
+            ? $this->roles->findById($id)
             : $this->roles->findByName($name, $roleNamespace);
 
-        if (!$role) {
-            throw new RoleNotFoundException($name);
-        }
-
-        if ($resolve && ($id === null || count($role->permissions) === 0)) {
-            /** @var RolePermissionRepositoryInterface $rpRepo */
-            $rpRepo = $this->rolePermissions;
-            /** @var PermissionRepositoryInterface $pmRepo */
-            $pmRepo = resolve(PermissionRepositoryInterface::class);
-
-            $rolePermissions = $rpRepo->getRolePermissions($role);
-            $role->permissions = array_map(function ($rp) use ($pmRepo) {
-                return $pmRepo->findById($rp->permission_id);
-            }, $rolePermissions);
-
-            /** @var RoleParentRepositoryInterface $parentRepo */
-            $parentRepo = resolve(RoleParentRepositoryInterface::class);
-            $role->parents = $parentRepo->getParents($role);
+        if ($resolve && $role) {
+            $role = $this->resolveRole($role);
         }
 
         return $role;
@@ -120,7 +100,57 @@ class RoleManager
      */
     public function save(Role $role): Role
     {
-        return $this->roles->save($role);
+        $isCreating = false;
+
+        /** @var AccessManagerInterface $manager */
+        $manager = resolve(AccessManagerInterface::class);
+        // remove relationships to parents and children before saving to avoid duplicates
+        $parents = $role->parents;
+        $children = $role->children;
+        $permissions = $role->permissions;
+
+        $role->parents = [];
+        $role->children = [];
+        $role->permissions = [];
+
+        // save role
+        $existing = $this->roles->findByName($role->name, $role->namespace);
+
+        if (!$existing) {
+            $isCreating = true;
+            $role = $this->roles->save($role);
+        } else {
+            $role->id = $existing->id;
+        }
+
+        // save these individually to give less responsibility to framemwork implementations as much as possible and also for better control over events and caching
+        foreach ($permissions as $perm) {
+            $perm = $manager->ensurePermission($perm);
+
+            $this->rolePermissions->assign(RolePermission::define($role->id, $perm->id));
+        }
+
+        foreach ($parents as $p) {
+            $p = $manager->ensureRole($p);
+
+            $this->roleParents->assign(RoleParent::define($role->id, $p->id));
+        }
+
+        foreach ($children as $c) {
+            $c = $manager->ensureRole($c);
+
+            $this->roleParents->assign(RoleParent::define($c->id, $role->id));
+        }
+
+        $role = $this->resolveRole($role);
+
+        if ($isCreating) {
+            $this->dispatcher->dispatch(new RepositoryAction(RepositoryAction::ACTION_CREATED, Role::class, $role));
+        } else {
+            $this->dispatcher->dispatch(new RepositoryAction(RepositoryAction::ACTION_UPDATED, Role::class, $role));
+        }
+
+        return $role;
     }
 
     /**
@@ -183,10 +213,45 @@ class RoleManager
     public function resolveRole(int|string|Role $role, bool $isId = false, ?string $namespace = null): ?Role
     {
         if ($role instanceof Role) {
-            return $role;
+            if ($role->id !== null) {
+                $role = $role->id;
+                $isId = true;
+            } else {
+                $namespace = $role->namespace;
+                $role = $role->name;
+            }
         }
 
-        return $isId ? $this->roles->findById($role) : $this->roles->findByName($role, $namespace);
+        $role = $isId ? $this->roles->findById($role, true) : $this->roles->findByName($role, $namespace);
+
+        if (!$role) {
+            return null;
+        }
+
+        $role->permissions = [];
+        $role->parents = [];
+        $role->children = [];
+
+        /** @var RolePermissionRepositoryInterface $rpRepo */
+        $rpRepo = resolve(RolePermissionRepositoryInterface::class);
+        /** @var PermissionRepositoryInterface $pmRepo */
+        $pmRepo = resolve(PermissionRepositoryInterface::class);
+
+        $rps = $rpRepo->getRolePermissions($role);
+        foreach ($rps as $rp) {
+            if (isset($rp->permission_id)) {
+                $p = $pmRepo->findById($rp->permission_id);
+                if ($p)
+                    $role->permit($p);
+            }
+        }
+
+        /** @var \Vima\Core\Contracts\RoleParentRepositoryInterface $hpRepo */
+        $hpRepo = resolve(RoleParentRepositoryInterface::class);
+        $role->parents = $hpRepo->getParents($role);
+        $role->children = $hpRepo->getChildren($role);
+
+        return $role;
     }
 
     /**
@@ -194,10 +259,9 @@ class RoleManager
      *
      * @param string|int $user_id
      * @param string|Role $role
-     * @param array $context Filters by context if provided.
      * @return bool
      */
-    public function userHasRole(string|int $user_id, string|Role $role, array $context = [], ?string $namespace = null): bool
+    public function userHasRole(string|int $user_id, string|Role $role, ?string $namespace = null): bool
     {
         $roleEntity = $this->resolveRole($role, namespace: $namespace);
         if (!$roleEntity) {
@@ -224,6 +288,26 @@ class RoleManager
      */
     public function all(?string $namespace = null, bool $onlyGlobal = false, bool $resolve = false): array
     {
-        return $this->roles->all($namespace, $onlyGlobal, $resolve);
+        $roles = $this->roles->all($namespace);
+
+        if ($resolve) {
+            $roles = array_map(fn($r) => $this->resolveRole($r), $roles);
+        }
+
+        if ($onlyGlobal) {
+            $roles = array_filter($roles, fn($r) => empty($r->namespace));
+        }
+
+        return $roles;
+    }
+
+    public function findByName(string $name, ?string $namespace = null): ?Role
+    {
+        return $this->roles->findByName($name, $namespace);
+    }
+
+    public function deleteAll(): void
+    {
+        $this->roles->deleteAll();
     }
 }

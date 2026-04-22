@@ -1,5 +1,6 @@
 <?php
 
+use Vima\Core\DTOs\AccessContext;
 use Vima\Core\Services\AccessManager;
 use Vima\Core\Entities\{Role, Permission};
 use Vima\Core\Tests\Fixtures\User;
@@ -52,10 +53,10 @@ it('supports namespaced policies for ABAC', function () {
             return NamespacePost::class;
         }
 
-        public function canEdit(User $u, NamespacePost $p, string $ability, ?string $namespace = null): bool
+        public function canEdit(AccessContext $ctx, NamespacePost $p): bool
         {
             // Policy can now check the namespace
-            return $namespace === 'privileged';
+            return $ctx->namespace === 'privileged';
         }
     }
 

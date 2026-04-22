@@ -2,12 +2,16 @@
 
 use Vima\Core\Config\Setup;
 use Vima\Core\Config\VimaConfig;
+use Vima\Core\Contracts\PermissionRepositoryInterface;
+use Vima\Core\Contracts\RolePermissionRepositoryInterface;
+use Vima\Core\Contracts\RoleRepositoryInterface;
 use Vima\Core\Entities\{Permission, Role};
 use Vima\Core\Exceptions\ConfigResolverExcpetion;
 use Vima\Core\Exceptions\InvalidConfigException;
 use Vima\Core\Services\SyncService;
 use Vima\Core\Tests\Fixtures\Storage\InMemoryPermissionRepository;
 use Vima\Core\Tests\Fixtures\Storage\InMemoryRoleRepository;
+use function Vima\Core\resolve;
 
 beforeEach(function () {
     initDependencies();
@@ -71,18 +75,15 @@ beforeEach(function () {
 
 test('Syncs permissions and roles successfully', function () {
     /** @var \Vima\Core\Tests\ConfigResolverTestCase $this */
-    $roleRepo = new InMemoryRoleRepository();
-    $permRepo = new InMemoryPermissionRepository();
-
-
-    $syncService = new SyncService(
-        roles: $roleRepo,
-        permissions: $permRepo
-    );
-
+    $syncService = resolve(SyncService::class);
     $syncService->sync($this->config);
 
-    $roles = $roleRepo->all();
+    /** @var RoleRepositoryInterface */
+    $roleRepo = resolve(RoleRepositoryInterface::class);
+    /** @var PermissionRepositoryInterface */
+    $permRepo = resolve(PermissionRepositoryInterface::class);
+
+    $roles = $roleRepo->all(null, false, true);
     $perms = $permRepo->all();
 
     expect($roles)->toHaveCount(4);
@@ -111,14 +112,9 @@ test('Throws an excpetion for invalid permssion wildcard', function () {
         ),
     );
 
-    $roleRepo = new InMemoryRoleRepository();
-    $permRepo = new InMemoryPermissionRepository();
+    // dd($this->config);
 
-
-    $syncService = new SyncService(
-        roles: $roleRepo,
-        permissions: $permRepo
-    );
+    $syncService = resolve(SyncService::class);
 
     expect(fn() => $syncService->sync($this->config))->toThrow(ConfigResolverExcpetion::class, "No permission match for wildcard 'eejejifefj.*' was found. Ensure a fully defined permission for it exists either as a Vima\Core\Entities\Permission object or as a string in a role permissions definition.");
 });
@@ -138,14 +134,7 @@ test('Throws an exception for invalid permssion format', function () {
         ),
     );
 
-    $roleRepo = new InMemoryRoleRepository();
-    $permRepo = new InMemoryPermissionRepository();
-
-
-    $syncService = new SyncService(
-        roles: $roleRepo,
-        permissions: $permRepo
-    );
+    $syncService = resolve(SyncService::class);
 
     expect(fn() => $syncService->sync($this->config))->toThrow(InvalidConfigException::class, "Invalid permission name given 'suerff. fri ifr ' for role 'editor'");
 });

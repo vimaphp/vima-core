@@ -29,20 +29,17 @@ interface RoleRepositoryInterface
      * Find a role by its unique identifier.
      *
      * @param int|string $id
-     * @param bool $resolve Whether to resolve related permissions.
      * @return Role|null
      */
-    public function findById(int|string $id, bool $resolve = false): ?Role;
+    public function findById(int|string $id): ?Role;
 
     /**
      * Retrieve all roles, optionally filtered by namespace.
      * 
      * @param string|null $namespace
-     * @param bool $onlyGlobal
-     * @param bool $resolve
      * @return Role[]
      */
-    public function all(?string $namespace = null, bool $onlyGlobal = false, bool $resolve = false): array;
+    public function all(?string $namespace = null): array;
 
     /**
      * Persist or update a role.

@@ -72,4 +72,19 @@ class Permission
         $manager = resolve(AccessManagerInterface::class);
         return $manager->updatePermission($this);
     }
+
+    /**
+     * Validates a permission name against its namespaced name and the provided name. Uses the name if no namespace is set
+     * @param string $name
+     * @return bool
+     */
+    public function validateNamespacedName(string $name): bool
+    {
+        return $name === $this->getFullName();
+    }
+
+    public function getFullName(): string
+    {
+        return $this->namespace ? "{$this->namespace}:{$this->name}" : $this->name;
+    }
 }

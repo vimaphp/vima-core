@@ -14,6 +14,7 @@ declare(strict_types=1);
 namespace Vima\Core\Entities;
 
 use Vima\Core\Contracts\AccessManagerInterface;
+use Vima\Core\Support\Utils;
 use function Vima\Core\resolve;
 
 /**
@@ -171,21 +172,30 @@ class Role
     /**
      * Add a parent role to inherit from.
      *
-     * @param Role $parent
+     * @param string|Role $parent String can be namespace:name or just name.
      * @return $this
      */
-    public function inherit(Role $parent): self
+    public function inherit(string|Role $parent): self
     {
+        if (is_string($parent)) {
+            $parent = Utils::splitPermission($parent)
+                |> (fn($parts) => new Role(name: $parts[1], namespace: $parts[0]));
+        }
+
         $exists = false;
         foreach ($this->parents as $p) {
-            if ($p->name === $parent->name && $p->namespace === $parent->namespace) {
+            if ($p->getFullName() === $parent->getFullName()) {
                 $exists = true;
                 break;
             }
         }
 
         if (!$exists) {
-            $this->parents[] = $parent;
+            /**
+             * @var AccessManagerInterface
+             */
+            $manager = resolve(AccessManagerInterface::class);
+            $this->parents[] = $manager->ensureRole($parent);
         }
 
         return $this;
@@ -197,18 +207,27 @@ class Role
      * @param Role $child
      * @return $this
      */
-    public function addChild(Role $child): self
+    public function addChild(string|Role $child): self
     {
+        if (is_string($child)) {
+            $child = Utils::splitPermission($child)
+                |> (fn($parts) => new Role(name: $parts[1], namespace: $parts[0]));
+        }
+
         $exists = false;
         foreach ($this->children as $c) {
-            if ($c->name === $child->name && $c->namespace === $child->namespace) {
+            if ($c->getFullName() === $child->getFullName()) {
                 $exists = true;
                 break;
             }
         }
 
         if (!$exists) {
-            $this->children[] = $child;
+            /**
+             * @var AccessManagerInterface
+             */
+            $manager = resolve(AccessManagerInterface::class);
+            $this->children[] = $manager->ensureRole($child);
         }
 
         return $this;
@@ -247,20 +266,34 @@ class Role
     /**
      * Check if this role contains any of the given permissions.
      *
-     * @param string ...$permissions Variable list of permission names.
+     * @param string ...$permission Variable list of permission names.
      * @return bool
      */
-    public function isPermitted(string ...$permissions): bool
+    public function isPermitted(string $permission): bool
     {
         $allPerms = $this->getAllPermissions();
-        $perms = array_map(fn($p) => $p->name, $allPerms);
 
-        foreach ($permissions as $p) {
-            if (in_array($p, $perms)) {
-                return true;
-            }
+        $perms = array_map(fn($p) => $p->getFullName(), $allPerms);
+
+        if (in_array($permission, $perms)) {
+            return true;
         }
 
         return false;
+    }
+
+    /**
+     * Validates a role name against its namespaced name and the provided name. Uses the name if no namespace is set
+     * @param string $name
+     * @return bool
+     */
+    public function validateNamespacedName(string $name): bool
+    {
+        return $name === $this->getFullName();
+    }
+
+    public function getFullName(): string
+    {
+        return $this->namespace ? "{$this->namespace}:{$this->name}" : $this->name;
     }
 }

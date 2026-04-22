@@ -14,11 +14,13 @@ namespace Vima\Core\Services;
 
 use Vima\Core\Contracts\EventDispatcherInterface;
 use Vima\Core\Contracts\{PolicyInterface, PolicyRegistryInterface};
+use Vima\Core\DTOs\AccessContext;
 use Vima\Core\Events\DefaultEventDispatcher;
 use Vima\Core\Events\Policy\PolicyRegistered;
 use Vima\Core\Exceptions\PolicyNotFoundException;
 use Vima\Core\Exceptions\PolicyMethodNotFoundException;
 use Vima\Core\Support\Utils;
+use function Vima\Core\resolve;
 
 /**
  * Class PolicyRegistry
@@ -103,12 +105,22 @@ class PolicyRegistry implements PolicyRegistryInterface
     {
         [$permNamespace, $permName] = Utils::splitPermission($ability);
         $permNamespace ??= $namespace;
+
+
         // 1. Try class-based policy if resource is provided
         if (!empty($arguments) && is_object($arguments[0])) {
             $resource = $arguments[0];
             $resourceClass = get_class($resource);
-            $arguments[] = $permName; // provide the ability to the policy method
-            $arguments[] = $permNamespace; // provide the namespace to the policy method
+            unset($arguments[0]); // Remove resource from arguments passed to policy methods
+            $arguments = array_values($arguments); // Reindex arguments array
+
+            $context = new AccessContext(
+                $user,
+                $permName,
+                resolve(AccessManager::class),
+                $permNamespace,
+                $arguments
+            );
 
             if (isset($this->policiesClasses[$resourceClass])) {
                 $policyClass = $this->policiesClasses[$resourceClass];
@@ -116,7 +128,7 @@ class PolicyRegistry implements PolicyRegistryInterface
 
                 $policy = new $policyClass();
                 if (method_exists($policy, $method)) {
-                    return (bool) $policy->$method($user, ...$arguments);
+                    return (bool) $policy->$method($context, $resource);
                 }
 
                 throw new PolicyMethodNotFoundException($policyClass, $method);
@@ -147,11 +159,12 @@ class PolicyRegistry implements PolicyRegistryInterface
         // Handle 'posts.edit' format
         if (strpos($ability, '.') !== false) {
             $parts = explode('.', $ability);
-            $ability = end($parts);
+            unset($parts[0]); // Remove the resource part, keep the action
+            $ability = implode('.', $parts); // Reconstruct the ability without the resource
         }
 
         // Convert to camelCase and prefix with 'allows'
-        $method = 'can' . str_replace(' ', '', ucwords(str_replace(['-', '_'], ' ', $ability)));
+        $method = 'can' . str_replace(' ', '', ucwords(str_replace(['-', '_', '.'], ' ', $ability)));
 
         return $method;
     }

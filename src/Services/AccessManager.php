@@ -33,15 +33,11 @@ use Vima\Core\Entities\Permission;
 use Vima\Core\Entities\Role;
 use Vima\Core\Entities\UserPermission;
 use Vima\Core\Exceptions\AccessDeniedException;
-use Vima\Core\Exceptions\PermissionNotFoundException;
 use Vima\Core\Exceptions\PolicyNotFoundException;
 use Vima\Core\Exceptions\PolicyMethodNotFoundException;
-use Vima\Core\Exceptions\RoleNotFoundException;
 use Vima\Core\Contracts\EventDispatcherInterface;
-use Vima\Core\Events\Access\AccessAllowed; // Wait, I didn't create AccessAllowed, I'll use result in AuthorizationChecked
 use Vima\Core\Events\Access\AuthorizationChecked;
 use Vima\Core\Events\Access\AccessDenied;
-use Vima\Core\Events\DefaultEventDispatcher;
 use Vima\Core\Events\Grant\PermissionGranted;
 use Vima\Core\Events\Grant\PermissionRevoked;
 use Vima\Core\Events\Grant\RoleAssigned;
@@ -144,6 +140,10 @@ class AccessManager implements AccessManagerInterface
      */
     public function isPermitted(object $user, string $permission, array $context = [], ?string $namespace = null): bool
     {
+        if ($this->config->superAdminBypass && $this->isSuperAdmin($user)) {
+            return true;
+        }
+
         $id = $this->userResolver->resolveId($user);
 
         // 1. Check for explicit denial (Deny layer overrides all)
@@ -247,6 +247,10 @@ class AccessManager implements AccessManagerInterface
      */
     public function can(object $user, string $permission, ?string $namespace = null, ...$arguments): bool
     {
+        if ($this->config->superAdminBypass && $this->isSuperAdmin($user)) {
+            return true;
+        }
+
         [$permission, $namespace] = $this->resolveNamespace($permission, $namespace);
 
         $hasRbac = $this->isPermitted($user, $permission, namespace: $namespace);
@@ -281,6 +285,9 @@ class AccessManager implements AccessManagerInterface
      */
     public function enforce(object $user, string $permission, ?string $namespace = null, ...$arguments): void
     {
+        if ($this->config->superAdminBypass && $this->isSuperAdmin($user)) {
+            return;
+        }
         [$permission, $namespace] = $this->resolveNamespace($permission, $namespace);
 
         if (!$this->can($user, $permission, $namespace, ...$arguments)) {
@@ -324,11 +331,7 @@ class AccessManager implements AccessManagerInterface
             [$role, $namespace] = $this->resolveNamespace($role, $namespace);
         }
 
-        try {
-            $newRole = $this->roleManager->find($role, $namespace);
-        } catch (RoleNotFoundException $e) {
-            $newRole = null;
-        }
+        $newRole = $this->roleManager->find($role, $namespace);
 
         if (!$newRole) {
             $newRole = $this->roleManager->create($role, $description, $namespace);
@@ -350,11 +353,7 @@ class AccessManager implements AccessManagerInterface
             [$permission, $namespace] = $this->resolveNamespace($permission, $namespace);
         }
 
-        try {
-            $newPerm = $this->permissionManager->find($permission, $namespace);
-        } catch (PermissionNotFoundException $e) {
-            $newPerm = null;
-        }
+        $newPerm = $this->permissionManager->find($permission, $namespace);
 
         if (!$newPerm) {
             $newPerm = $this->permissionManager->create($permission, $description, $namespace);
@@ -397,17 +396,15 @@ class AccessManager implements AccessManagerInterface
      * Get a role by name.
      *
      * @param string $name
+     * @param string $namespace
+     * @param bool $resolve Whether to resolve permissions and relationships
      * @return Role|null
      */
-    public function getRole(string $name, ?string $namespace = null): ?Role
+    public function getRole(string $name, ?string $namespace = null, bool $resolve = false): ?Role
     {
-        try {
-            [$name, $namespace] = $this->resolveNamespace($name, $namespace);
+        [$name, $namespace] = $this->resolveNamespace($name, $namespace);
 
-            return $this->roleManager->find($name, $namespace);
-        } catch (RoleNotFoundException $e) {
-            return null;
-        }
+        return $this->roleManager->find($name, $namespace, $resolve);
     }
 
     /**
@@ -418,13 +415,9 @@ class AccessManager implements AccessManagerInterface
      */
     public function getPermission(string $name, ?string $namespace = null): ?Permission
     {
-        try {
-            [$name, $namespace] = $this->resolveNamespace($name, $namespace);
+        [$name, $namespace] = $this->resolveNamespace($name, $namespace);
 
-            return $this->permissionManager->find($name, $namespace);
-        } catch (PermissionNotFoundException $e) {
-            return null;
-        }
+        return $this->permissionManager->find($name, $namespace);
     }
 
     /**
@@ -448,12 +441,7 @@ class AccessManager implements AccessManagerInterface
                 $roleNamespace = $role->namespace;
             }
 
-
-            try {
-                $roleRecord = $this->roleManager->find($role, $roleNamespace);
-            } catch (RoleNotFoundException $e) {
-                $roleRecord = null;
-            }
+            $roleRecord = $this->roleManager->find($role, $roleNamespace);
 
             // create role if it does not exist
             if (!$roleRecord) {
@@ -643,15 +631,15 @@ class AccessManager implements AccessManagerInterface
     {
         $permissionRecord = null;
 
-        try {
-            if (is_string($permission)) {
-                [$name, $namespace] = $this->resolveNamespace($permission, $namespace);
+        if (is_string($permission)) {
+            [$name, $namespace] = $this->resolveNamespace($permission, $namespace);
 
-                $permissionRecord = $this->permissionManager->find($name, $namespace);
-            } elseif ($permission instanceof Permission) {
-                $permissionRecord = $this->permissionManager->find($permission);
-            }
-        } catch (PermissionNotFoundException $th) {
+            $permissionRecord = $this->permissionManager->find($name, $namespace);
+        } elseif ($permission instanceof Permission) {
+            $permissionRecord = $this->permissionManager->find($permission);
+        }
+
+        if (!$permissionRecord) {
             return false;
         }
 
@@ -938,5 +926,16 @@ class AccessManager implements AccessManagerInterface
         $repo = resolve(RoleParentRepositoryInterface::class);
         $repo->remove($roleParent);
         $this->clearCache();
+    }
+
+    public function isSuperAdmin(object $user): bool
+    {
+        $superAdminRole = $this->config->superAdminRole;
+
+        if (!$superAdminRole) {
+            return false;
+        }
+
+        return $this->hasRole($user, $superAdminRole);
     }
 }

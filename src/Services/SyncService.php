@@ -12,11 +12,10 @@
 namespace Vima\Core\Services;
 
 use Vima\Core\Config\VimaConfig;
-use Vima\Core\Contracts\RoleRepositoryInterface;
-use Vima\Core\Contracts\PermissionRepositoryInterface;
 use Vima\Core\Contracts\RolePermissionRepositoryInterface;
 use Vima\Core\Entities\Role;
 use Vima\Core\Entities\Permission;
+use Vima\Core\Entities\SuperAdmin;
 use Vima\Core\Entities\Sync\Skipped;
 use Vima\Core\Entities\Sync\SyncResponse;
 use Vima\Core\Services\ConfigResolver;
@@ -24,9 +23,9 @@ use Vima\Core\Contracts\EventDispatcherInterface;
 use Vima\Core\Events\Sync\SyncStarted;
 use Vima\Core\Events\Sync\SyncFinished;
 use Vima\Core\Events\DefaultEventDispatcher;
-
 use Vima\Core\Contracts\CacheInterface;
 use Vima\Core\Support\Utils;
+use function Vima\Core\resolve;
 
 /**
  * Class SyncService
@@ -39,16 +38,9 @@ class SyncService
 {
     private bool $refresh = false;
 
-    /**
-     * @param RoleRepositoryInterface $roles
-     * @param PermissionRepositoryInterface $permissions
-     * @param RolePermissionRepositoryInterface|null $rolePermissions
-     * @param EventDispatcherInterface|null $dispatcher
-     * @param CacheInterface|null $cache
-     */
     public function __construct(
-        private RoleRepositoryInterface $roles,
-        private PermissionRepositoryInterface $permissions,
+        private RoleManager $roles,
+        private PermissionManager $permissions,
         private ?RolePermissionRepositoryInterface $rolePermissions = null,
         private ?EventDispatcherInterface $dispatcher = null,
         private ?CacheInterface $cache = null
@@ -90,8 +82,11 @@ class SyncService
         $skippedRoles = [];
         $skippedPermissions = [];
 
+        $config = $this->setSuperAdminIntoConfigSetup($config);
+
         // Validate & normalize using ConfigResolver
         $resolver = new ConfigResolver($config);
+
         // Sync roles with resolved permissions
         $roles = $resolver->getRoles(); // [roleName => ['description' => ..., 'permissions' => [...]]]
         $syncedRoles = [];
@@ -120,6 +115,7 @@ class SyncService
                 $role->description = $roleData['description'] ?? null;
                 $role->namespace = $roleNamespace;
                 $role->parents = $roleData['parents'] ?? [];
+                $role->children = $roleData['children'] ?? [];
 
                 if (!in_array($namespacedRoleName, $syncedRoles)) {
                     $role->permissions = []; // reset for resync
@@ -130,7 +126,8 @@ class SyncService
                     namespace: $roleNamespace,
                     permissions: [],
                     description: $roleData['description'] ?? null,
-                    parents: $roleData['parents'] ?? []
+                    parents: $roleData['parents'] ?? [],
+                    children: $roleData['children'] ?? []
                 );
             }
 
@@ -166,5 +163,76 @@ class SyncService
         $this->cache?->clear();
 
         return $response;
+    }
+
+    private function getSuperAdminRole(VimaConfig $config): ?SuperAdmin
+    {
+
+        if ($config->superAdminRole) {
+            if ($config->superAdminRole instanceof SuperAdmin) {
+                $superAdmin = $config->superAdminRole;
+
+                $superAdmin->permissions = ['*']; // Ensure super admin has all permissions
+
+                return $superAdmin;
+            }
+
+            [$namespace, $name] = Utils::splitPermission($config->superAdminRole);
+
+            return new SuperAdmin(
+                name: $name,
+                namespace: $namespace,
+                description: 'Super Admin role with all permissions',
+                permissions: [
+                    new Permission(name: '*')
+                ]
+            );
+        }
+
+        return null;
+    }
+
+    private function getConfigSuperAdminRoleInSetup(VimaConfig $config): ?Role
+    {
+
+        $superAdminRole = $this->getSuperAdminRole($config);
+
+        if (!$superAdminRole) {
+            return null;
+        }
+
+        foreach ($config->setup->roles as $role) {
+            if ($role->getFullName() === $superAdminRole->getFullName()) {
+                return $role;
+            }
+        }
+
+        return null;
+    }
+
+    public function setSuperAdminIntoConfigSetup(VimaConfig $config): VimaConfig
+    {
+
+        $superAdminInConfig = $this->getConfigSuperAdminRoleInSetup($config);
+        $definedSuperAdmin = $this->getSuperAdminRole($config);
+
+        if (!$superAdminInConfig && $definedSuperAdmin) {
+            $config->setup->roles[] = $definedSuperAdmin;
+        }
+
+        if ($superAdminInConfig) {
+            if (!in_array('*', $superAdminInConfig->permissions)) {
+                $superAdminInConfig->permissions[] = '*';
+            }
+
+            $key = array_filter($config->setup->roles, fn($r) => $r->getFullName() === $superAdminInConfig->getFullName()) |> array_key_first(...);
+
+            unset($config->setup->roles[$key]);
+            $config->setup->roles[] = $superAdminInConfig;
+
+            $config->setup->roles = array_filter($config->setup->roles) |> array_values(...);
+        }
+
+        return $config;
     }
 }

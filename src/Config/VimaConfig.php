@@ -14,6 +14,7 @@ declare(strict_types=1);
 namespace Vima\Core\Config;
 
 use Closure;
+use Vima\Core\Entities\SuperAdmin;
 
 /**
  * Class VimaConfig
@@ -52,6 +53,9 @@ class VimaConfig
         public bool $cacheEnabled = false,
         public int $cacheTTL = 3600,
         public string $cachePrefix = 'vima_',
+
+        public SuperAdmin|string|null $superAdminRole = null,
+        public bool $superAdminBypass = true,
     ) {
         if ($this->registerPolicies) {
             ($this->registerPolicies)();

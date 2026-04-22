@@ -1,5 +1,6 @@
 <?php
 
+use Vima\Core\DTOs\AccessContext;
 use Vima\Core\Services\PolicyRegistry;
 use Vima\Core\Tests\Fixtures\User;
 use Vima\Core\Contracts\PolicyInterface;
@@ -19,11 +20,11 @@ class TestPostPolicy implements PolicyInterface
     {
         return TestPost::class;
     }
-    public function canUpdate(User $user, TestPost $post): bool
+    public function canUpdate(AccessContext $ctx, TestPost $post): bool
     {
-        return $user->vimaGetId() === $post->ownerId;
+        return $ctx->owns($post, 'ownerId');
     }
-    public function canEdit(User $user, TestPost $post): bool
+    public function canEdit(AccessContext $ctx, TestPost $post): bool
     {
         return true;
     }
@@ -109,9 +110,9 @@ it('passes multiple arguments correctly to policy methods', function () {
         {
             return TestPost::class;
         }
-        public function canApprove(User $user, TestPost $post, bool $isSuper): bool
+        public function canApprove(AccessContext $ctx, TestPost $post): bool
         {
-            return $isSuper;
+            return $ctx->additionalContext[0] === true;
         }
     }
 

@@ -36,6 +36,12 @@ class ConfigResolver
         $this->validateConfig($config);
     }
 
+    public function setConfig(VimaConfig $config): self
+    {
+        $this->config = $config;
+        return $this;
+    }
+
     /**
      * Validate the structure of the provided configuration.
      *
@@ -43,7 +49,7 @@ class ConfigResolver
      * @return void
      * @throws InvalidConfigException
      */
-    protected function validateConfig(VimaConfig $config): void
+    public function validateConfig(VimaConfig $config): void
     {
         if (!isset($config->setup->permissions) || !is_array($config->setup->permissions)) {
             throw new InvalidConfigException("Config must have a 'permissions' array.");
@@ -65,7 +71,7 @@ class ConfigResolver
 
         foreach ($config->setup->roles as $role) {
             if (!$role instanceof Role) {
-                throw new InvalidConfigException("Each item in 'roles' must be an instance of Role.");
+                throw new InvalidConfigException("Each item in 'roles' must be an instance of Role");
             }
 
             if (!$this->isValidName($role->name)) {
@@ -161,22 +167,30 @@ class ConfigResolver
     {
         $all = $this->getPermissions();
         $resolved = [];
+        $isSuperAdmin = false;
 
         foreach ($permissions as $perm) {
-            $name = $perm->name;
-            $namespace = $perm->namespace;
+            if ($perm instanceof Permission) {
+                $name = $perm->name;
+                $namespace = $perm->namespace;
+            } else {
+                $name = $perm;
+                $namespace = null;
+            }
 
             // Full namespaced name for search
             $fullName = $namespace ? "{$namespace}:{$name}" : $name;
 
             // Global wildcard (all permissions from all namespaces)
             if ($name === '*' && !$namespace) {
+                $isSuperAdmin = true;
                 $resolved = array_merge($resolved, $all);
                 continue;
             }
 
             // Namespaced wildcard (e.g., "blog:*")
             if ($name === '*' && $namespace) {
+                $isSuperAdmin = true;
                 $pattern = "/^{$namespace}:.*$/";
                 $matched = preg_grep($pattern, $all);
                 $resolved = array_merge($resolved, $matched);
@@ -214,12 +228,12 @@ class ConfigResolver
         $result = array_values(array_unique($resolved));
 
         // check if there any unresolved permissions
-        if (count($result) < count($permissions)) {
+        if (count($result) < count($permissions) && !$isSuperAdmin) {
             $fullRoleName = $role->namespace ? "{$role->namespace}:{$role->name}" : $role->name;
             throw new ConfigResolverExcpetion("A count mismatch when resolving permissions for role '{$fullRoleName}'. An issue might be in the format of the permissions given in Setup config");
         }
 
-        return $result;
+        return array_filter($result);
     }
 
     /**
