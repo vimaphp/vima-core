@@ -108,11 +108,11 @@ class RoleManager
         $parents = $role->parents;
         $children = $role->children;
         $permissions = $role->permissions;
+        $forbidden = $role->getForbidden();
 
         $role->parents = [];
         $role->children = [];
         $role->permissions = [];
-
 
         // save role
         $existing = $this->roles->findByName($role->name, $role->namespace);
@@ -129,6 +129,12 @@ class RoleManager
             $perm = $manager->ensurePermission($perm);
 
             $this->rolePermissions->assign(RolePermission::define($role->id, $perm->id));
+        }
+
+        foreach ($forbidden as $perm) {
+            $perm = $manager->ensurePermission($perm);
+
+            $this->rolePermissions->revoke(RolePermission::define($role->id, $perm->id));
         }
 
         foreach ($parents as $p) {

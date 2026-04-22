@@ -78,7 +78,7 @@ it('ensures Role entity correctly stores and retrieves namespaced permissions', 
     $p1 = Permission::define("edit", namespace: "app1");
     $p2 = Permission::define("edit", namespace: "app2");
 
-    $role = Role::define("editor", [$p1, $p2]);
+    $role = Role::define("editor", [$p1, $p2])->save();
 
     $perms = $role->getAllPermissions();
     expect($perms)->toHaveCount(2);

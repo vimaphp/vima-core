@@ -5,11 +5,16 @@ use Vima\Core\Contracts\RoleRepositoryInterface;
 use Vima\Core\Entities\{Permission, Role};
 use function Vima\Core\resolve;
 
+beforeEach(function () {
+    // Clear any existing roles and permissions before each test
+    initDependencies();
+});
+
 it('can add and check permissions', function () {
     $role = new Role('admin');
     $perm = new Permission('users.delete');
 
-    $role->permit($perm);
+    $role->permit($perm)->save();
 
     expect($role->isPermitted('users.delete'))->toBeTrue()
         ->and($role->isPermitted('users.edit'))->toBeFalse();
@@ -38,17 +43,17 @@ it('removes a permission', function () {
     $role = new Role("author");
     $permission = new Permission("blog.create");
 
-    $role->permit($permission);
+    $role->permit($permission)->save();
 
     expect($role->isPermitted('blog.create'))->toBeTrue();
 
-    $role->forbid($permission);
+    $role->forbid($permission)->save();
 
     expect($role->isPermitted('blog.create'))->toBeFalse();
 });
 
 it('defines a role with string permissions', function () {
-    $role = Role::define('editor', ['posts.create', 'posts.edit']);
+    $role = Role::define('editor', ['posts.create', 'posts.edit'])->save();
 
     expect($role->name)->toBe('editor')
         ->and($role->isPermitted('posts.create'))->toBeTrue()
@@ -59,7 +64,7 @@ it('defines a role with Permission objects', function () {
     $p1 = Permission::define('users.view');
     $p2 = Permission::define('users.delete');
 
-    $role = Role::define('admin', [$p1, $p2]);
+    $role = Role::define('admin', [$p1, $p2])->save();
 
     expect($role->isPermitted('users.view'))->toBeTrue()
         ->and($role->isPermitted('users.delete'))->toBeTrue();

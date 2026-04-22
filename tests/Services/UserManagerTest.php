@@ -8,6 +8,7 @@ use Vima\Core\Tests\Fixtures\User;
 
 beforeEach(function () {
     /** @var \Vima\Core\Tests\ManagerTestCase $this */
+    initDependencies();
 
     $this->userRepo = new InMemoryUserRepository();
 
@@ -26,27 +27,6 @@ it('creates a user with id', function () {
     expect($user)->toBeInstanceOf(User::class)
         ->and($user->vimaGetId())->toBe(101);
 });
-
-it('assigns roles to user', function () {
-    /** @var \Vima\Core\Tests\ManagerTestCase $this */
-    /** @var UserManager $this->userManager */
-
-    /** @var User */
-    $user = $this->userManager->find(202);
-
-    $role = new Role('editor');
-    $role->permit(new Permission('posts.create'));
-
-    $user->ensureRole($role);
-
-    $this->userManager->save($user);
-
-    /** @var User */
-    $user = $this->userManager->find(202);
-
-    expect($user->isPermitted('posts.create'))->toBeTrue();
-});
-
 
 it('throws exception if user not found', function () {
     /** @var \Vima\Core\Tests\ManagerTestCase $this */

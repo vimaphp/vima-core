@@ -47,6 +47,7 @@ class Role
         public ?string $description = null,
         public array $context = [],
         public int|string|null $id = null,
+        protected array $fobiddenPermissions = []
     ) {
     }
 
@@ -117,6 +118,8 @@ class Role
             $this->permissions,
             fn($p) => $p->name !== $permission->name || $p->namespace !== $permission->namespace
         );
+
+        $this->fobiddenPermissions[] = $permission;
 
         return $this;
     }
@@ -280,5 +283,10 @@ class Role
     public function getFullName(): string
     {
         return $this->namespace ? "{$this->namespace}:{$this->name}" : $this->name;
+    }
+
+    public function getForbidden(): array
+    {
+        return $this->fobiddenPermissions;
     }
 }
