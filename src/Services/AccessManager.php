@@ -407,6 +407,11 @@ class AccessManager implements AccessManagerInterface
         return $this->roleManager->find($name, $namespace, $resolve);
     }
 
+    public function getRolePermissions(string|Role $role): array
+    {
+        return $this->roleManager->getRolePermissions($role);
+    }
+
     /**
      * Get a permission by name.
      *

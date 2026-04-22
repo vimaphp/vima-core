@@ -113,6 +113,7 @@ class RoleManager
         $role->children = [];
         $role->permissions = [];
 
+
         // save role
         $existing = $this->roles->findByName($role->name, $role->namespace);
 
@@ -143,6 +144,8 @@ class RoleManager
         }
 
         $role = $this->resolveRole($role);
+
+        // dd($role);
 
         if ($isCreating) {
             $this->dispatcher->dispatch(new RepositoryAction(RepositoryAction::ACTION_CREATED, Role::class, $role));
@@ -238,6 +241,7 @@ class RoleManager
         $pmRepo = resolve(PermissionRepositoryInterface::class);
 
         $rps = $rpRepo->getRolePermissions($role);
+
         foreach ($rps as $rp) {
             if (isset($rp->permission_id)) {
                 $p = $pmRepo->findById($rp->permission_id);
@@ -309,5 +313,23 @@ class RoleManager
     public function deleteAll(): void
     {
         $this->roles->deleteAll();
+    }
+
+    public function getRolePermissions(string|Role $role): array
+    {
+        $roleEntity = $this->resolveRole($role);
+        if (!$roleEntity) {
+            return [];
+        }
+
+        $perms = [...$roleEntity->permissions];
+        foreach ($roleEntity->parents as $parent) {
+            $parentPermissions = $this->getRolePermissions($parent);
+            foreach ($parentPermissions as $perm) {
+                $perms[] = $perm;
+            }
+        }
+
+        return $perms;
     }
 }

@@ -239,28 +239,13 @@ class Role
      * @param array &$visited Map of role names to track circular dependencies.
      * @return Permission[]
      */
-    public function getAllPermissions(array &$visited = []): array
+    public function getAllPermissions(): array
     {
-        if (isset($visited[$this->name])) {
-            return [];
-        }
-
-        $visited[$this->name] = true;
-
-        $permissions = [];
-        foreach ($this->permissions as $p) {
-            $key = ($p->namespace ?? '') . ':' . $p->name;
-            $permissions[$key] = $p;
-        }
-
-        foreach ($this->parents as $parent) {
-            foreach ($parent->getAllPermissions($visited) as $p) {
-                $key = ($p->namespace ?? '') . ':' . $p->name;
-                $permissions[$key] = $p;
-            }
-        }
-
-        return array_values($permissions);
+        /**
+         * @var AccessManagerInterface
+         */
+        $manager = resolve(AccessManagerInterface::class);
+        return $manager->getRolePermissions($this);
     }
 
     /**

@@ -127,7 +127,7 @@ interface AccessManagerInterface
      * @param string|null $namespace
      * @return Role|null
      */
-    public function getRole(string $name, ?string $namespace = null): ?Role;
+    public function getRole(string $name, ?string $namespace = null, bool $resolve = false): ?Role;
 
     /**
      * Retrieve a permission by its unique name.
@@ -205,7 +205,7 @@ interface AccessManagerInterface
      * @return bool
      */
     public function isDenied(object $user, string|Permission $permission, ?string $namespace = null): bool;
-    
+
     /**
      * Retrieve all permissions explicitly denied for the user.
      *
@@ -261,6 +261,8 @@ interface AccessManagerInterface
 
     public function govern(string $action, callable $callback): void;
 
+    public function getRolePermissions(string|Role $role): array;
+
     /**
      * Register a class-based policy for a resource.
      *
@@ -281,16 +283,16 @@ interface AccessManagerInterface
 
     public function updateUserRole(UserRole $userRole): UserRole;
     public function deleteUserRole(UserRole $userRole): void;
-    
+
     public function updateUserPermission(UserPermission $userPermission): UserPermission;
     public function deleteUserPermission(UserPermission $userPermission): void;
-    
+
     public function updateUserDeny(UserDeny $userDeny): UserDeny;
     public function deleteUserDeny(UserDeny $userDeny): void;
-    
+
     public function updateRolePermission(RolePermission $rolePermission): RolePermission;
     public function deleteRolePermission(RolePermission $rolePermission): void;
-    
+
     public function updateRoleParent(RoleParent $roleParent): RoleParent;
     public function deleteRoleParent(RoleParent $roleParent): void;
 }
