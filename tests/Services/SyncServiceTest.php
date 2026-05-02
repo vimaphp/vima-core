@@ -78,12 +78,12 @@ test('Syncs permissions and roles successfully', function () {
     $syncService = resolve(SyncService::class);
     $syncService->sync($this->config);
 
-    /** @var RoleRepositoryInterface */
-    $roleRepo = resolve(RoleRepositoryInterface::class);
+    /** @var \Vima\Core\Services\RoleManager */
+    $roleManager = resolve(\Vima\Core\Services\RoleManager::class);
     /** @var PermissionRepositoryInterface */
     $permRepo = resolve(PermissionRepositoryInterface::class);
 
-    $roles = $roleRepo->all(null, false, true);
+    $roles = $roleManager->all(null, false, true);
     $perms = $permRepo->all();
 
     expect($roles)->toHaveCount(4);

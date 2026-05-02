@@ -59,7 +59,7 @@ final class GrantPermissionCommand extends Command
                     return $this->id; }
             };
 
-            $manager->grantPermission($user, $permissionName);
+            $manager->permit($user, $permissionName);
             $output->writeln("<info>Permission [{$permissionName}] granted to user [{$userId}] successully.</info>");
         } catch (\Throwable $e) {
             $output->writeln("<error>Failed to grant permission: {$e->getMessage()}</error>");

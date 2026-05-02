@@ -51,7 +51,7 @@ final class MakeRoleCommand extends Command
         $manager = resolve(AccessManagerInterface::class);
 
         try {
-            $role = $manager->addRole($name, $description);
+            $role = $manager->addRole($name, [], $description);
             $output->writeln("<info>Role [{$role->name}] created successfully.</info>");
         } catch (\Throwable $e) {
             $output->writeln("<error>Failed to create role: {$e->getMessage()}</error>");

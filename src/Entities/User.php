@@ -14,6 +14,7 @@ declare(strict_types=1);
 namespace Vima\Core\Entities;
 
 use Vima\Core\Contracts\AccessManagerInterface;
+use Vima\Core\Contracts\UserInterface;
 use function Vima\Core\resolve;
 
 /**
@@ -23,7 +24,7 @@ use function Vima\Core\resolve;
  *
  * @package Vima\Core\Entities
  */
-class User
+class User implements UserInterface
 {
     /**
      * User constructor.
@@ -33,6 +34,16 @@ class User
     public function __construct(
         public int|string $id
     ) {
+    }
+
+    public function vimaGetId(): string|int
+    {
+        return $this->id;
+    }
+
+    public function vimaGetRoles(): array
+    {
+        return array_map(fn($role) => $role->name, $this->toVimaIdentity()->roles);
     }
 
     /**
@@ -55,7 +66,7 @@ class User
     {
         /** @var AccessManagerInterface $manager */
         $manager = resolve(AccessManagerInterface::class);
-        $roles = $manager->getUserRoles((object)['id' => $this->id]);
+        $roles = $manager->getUserRoles($this);
         
         return VimaIdentity::define($this->id, $roles);
     }

@@ -12,34 +12,35 @@ declare(strict_types=1);
 
 namespace Vima\Core\Contracts;
 
-use Vima\Core\Entities\{Role, Permission};
-use Vima\Core\Entities\RolePermission;
+use Vima\Core\Entities\Bare\BareRole;
+use Vima\Core\Entities\Bare\BarePermission;
+use Vima\Core\Entities\Bare\BareRolePermission;
 
 interface RolePermissionRepositoryInterface
 {
     /**
      * Returns Permssions for the role specified
-     * @param Role $args
-     * @return RolePermission[]
+     * @param BareRole $role
+     * @return BareRolePermission[]
      */
-    public function getRolePermissions(Role $role): array;
+    public function getRolePermissions(BareRole $role): array;
 
     /**
      * Returns the roles assigned to the specified permission
-     * @param Permission $permission
-     * @return RolePermission[]
+     * @param BarePermission $permission
+     * @return BareRolePermission[]
      */
-    public function getPermissionRoles(Permission $permission): array;
+    public function getPermissionRoles(BarePermission $permission): array;
 
     /**
      * Returns all the available role_permissions
-     *  @return RolePermission[] 
+     *  @return BareRolePermission[] 
      */
     public function all(): array;
 
-    public function assign(RolePermission $permission): void;
+    public function assign(BareRolePermission $permission): void;
 
-    public function revoke(RolePermission $permission): void;
+    public function revoke(BareRolePermission $permission): void;
 
     /**
      * Clear all role permissions.

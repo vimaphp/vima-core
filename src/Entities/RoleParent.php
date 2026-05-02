@@ -13,79 +13,77 @@ declare(strict_types=1);
 namespace Vima\Core\Entities;
 
 use Vima\Core\Contracts\AccessManagerInterface;
-use Vima\Core\Contracts\RoleRepositoryInterface;
+use Vima\Core\Entities\Bare\BareRoleParent;
 use function Vima\Core\resolve;
 
 /**
  * Class RoleParent
  * 
- * Represents a relationship where one role inherits from another.
- *
- * @package Vima\Core\Entities
+ * Represents role inheritance.
  */
 class RoleParent
 {
-    /**
-     * RoleParent constructor.
-     *
-     * @param int|string $role_id The child role ID.
-     * @param int|string $parent_id The parent role ID.
-     * @param int|string|null $id Unique identifier from storage.
-     */
     public function __construct(
-        public int|string $role_id,
-        public int|string $parent_id,
-        public int|string|null $id = null
+        public int|string|null $role_id = null,
+        public int|string|null $parent_id = null,
+        public int|string|null $id = null,
+        public ?Role $role = null,
+        public ?Role $parent = null
     ) {
     }
 
-    /**
-     * Static helper to define a new role parent relationship.
-     *
-     * @param int|string $role_id
-     * @param int|string $parent_id
-     * @return self
-     */
-    public static function define(int|string $role_id, int|string $parent_id): self
+    public static function define(int|string $roleId, int|string $parentId): self
     {
-        return new self($role_id, $parent_id);
+        return new self(role_id: $roleId, parent_id: $parentId);
     }
 
     public function save(): self
     {
         /** @var AccessManagerInterface $manager */
         $manager = resolve(AccessManagerInterface::class);
-        return $manager->updateRoleParent($this);
+        $bare = new BareRoleParent($this->id, $this->role_id, $this->parent_id);
+        $saved = $manager->updateRoleParent($bare);
+        $this->id = $saved->id;
+        return $this;
     }
 
     public function delete(): void
     {
         /** @var AccessManagerInterface $manager */
         $manager = resolve(AccessManagerInterface::class);
-        $manager->deleteRoleParent($this);
+        $bare = new BareRoleParent($this->id, $this->role_id, $this->parent_id);
+        $manager->deleteRoleParent($bare);
     }
 
-    /**
-     * Get the child role entity.
-     *
-     * @return Role
-     */
-    public function getRole(): Role
+    public function getRole(): ?Role
     {
-        /** @var RoleRepositoryInterface $repo */
-        $repo = resolve(RoleRepositoryInterface::class);
-        return $repo->findById($this->role_id);
+        if ($this->role) {
+            return $this->role;
+        }
+
+        if (!$this->role_id) {
+            return null;
+        }
+
+        /** @var \Vima\Core\Services\RoleManager $manager */
+        $manager = resolve(\Vima\Core\Services\RoleManager::class);
+        $this->role = $manager->resolveRole($this->role_id, isId: true);
+        return $this->role;
     }
 
-    /**
-     * Get the parent role entity.
-     *
-     * @return Role
-     */
-    public function getParent(): Role
+    public function getParent(): ?Role
     {
-        /** @var RoleRepositoryInterface $repo */
-        $repo = resolve(RoleRepositoryInterface::class);
-        return $repo->findById($this->parent_id);
+        if ($this->parent) {
+            return $this->parent;
+        }
+
+        if (!$this->parent_id) {
+            return null;
+        }
+
+        /** @var \Vima\Core\Services\RoleManager $manager */
+        $manager = resolve(\Vima\Core\Services\RoleManager::class);
+        $this->parent = $manager->resolveRole($this->parent_id, isId: true);
+        return $this->parent;
     }
 }

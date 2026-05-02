@@ -207,9 +207,9 @@ beforeEach(function () {
 
     // Setup Policy Registry
     $this->policyRegistry = resolve(PolicyRegistryInterface::class);
-    $this->policyRegistry->register('posts.update', function (User $user, $post) {
+    $this->policyRegistry->register('posts.update', function (AccessContext $ctx, $post) {
         // Editors and Admins can update any post
-        foreach (resolve(AccessManager::class)->getUserRoles($user) as $role) {
+        foreach (resolve(AccessManager::class)->getUserRoles($ctx->user) as $role) {
             if (in_array($role->name, ['editor', 'admin'])) {
                 return true;
             }

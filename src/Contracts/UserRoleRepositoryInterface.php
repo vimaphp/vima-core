@@ -12,31 +12,29 @@ declare(strict_types=1);
 
 namespace Vima\Core\Contracts;
 
-use Vima\Core\Entities\UserRole;
-use \Vima\Core\Entities\Role;
+use Vima\Core\Entities\Bare\BareUserRole;
 
 interface UserRoleRepositoryInterface
 {
     /**
-     * Returns role associated with the user
+     * Returns roles assignments associated with the user
      * 
      * @param int|string $user_id
-     * @param bool $resolve Whether to resolve the permissions for the roles too
-     * @return Role[]
+     * @return BareUserRole[]
      */
-    public function getRolesForUser(int|string $user_id, bool $resolve = false): array;
+    public function getRolesForUser(int|string $user_id): array;
 
     /**
      * Assigns a role to a user
-     * @param \Vima\Core\Entities\UserRole $userRole
+     * @param BareUserRole $userRole
      * @return void
      */
-    public function assign(UserRole $userRole): void;
+    public function assign(BareUserRole $userRole): void;
 
     /**
      * Removes a role assigned to a user
-     * @param \Vima\Core\Entities\UserRole $userRole
+     * @param BareUserRole $userRole
      * @return void
      */
-    public function revoke(UserRole $userRole): void;
+    public function revoke(BareUserRole $userRole): void;
 }

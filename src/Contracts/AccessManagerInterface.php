@@ -15,10 +15,17 @@ namespace Vima\Core\Contracts;
 use Vima\Core\Entities\Permission;
 use Vima\Core\Entities\Role;
 use Vima\Core\Entities\UserDeny;
+use Vima\Core\Entities\UserRoleDeny;
 use Vima\Core\Entities\UserRole;
 use Vima\Core\Entities\UserPermission;
 use Vima\Core\Entities\RolePermission;
 use Vima\Core\Entities\RoleParent;
+use Vima\Core\Entities\Bare\BareUserRole;
+use Vima\Core\Entities\Bare\BareUserPermission;
+use Vima\Core\Entities\Bare\BareRolePermission;
+use Vima\Core\Entities\Bare\BareRoleParent;
+use Vima\Core\Entities\Bare\BareUserDeny as BareUserDenyEntity;
+use Vima\Core\Entities\Bare\BareUserRoleDeny as BareUserRoleDenyEntity;
 
 /**
  * Interface AccessManagerInterface
@@ -60,9 +67,9 @@ interface AccessManagerInterface
      * @param string $action The policy action name.
      * @param string|null $namespace The namespace of the resource.
      * @param mixed ...$arguments Contextual arguments passed to the policy.
-     * @return bool
+     * @return bool|\Vima\Core\DTOs\AccessResponse
      */
-    public function evaluatePolicy(object $user, string $action, ?string $namespace = null, ...$arguments): bool;
+    public function evaluatePolicy(object $user, string $action, ?string $namespace = null, ...$arguments): bool|\Vima\Core\DTOs\AccessResponse;
 
     /**
      * Combined access check: returns true if the user has the required permission (RBAC)
@@ -75,6 +82,26 @@ interface AccessManagerInterface
      * @return bool
      */
     public function can(object $user, string $permission, ?string $namespace = null, ...$arguments): bool;
+
+    /**
+     * Check if a user has any of the given permissions.
+     *
+     * @param object $user
+     * @param array $permissions
+     * @param mixed ...$arguments
+     * @return bool
+     */
+    public function canAny(object $user, array $permissions, ...$arguments): bool;
+
+    /**
+     * Check if a user has all of the given permissions.
+     *
+     * @param object $user
+     * @param array $permissions
+     * @param mixed ...$arguments
+     * @return bool
+     */
+    public function canAll(object $user, array $permissions, ...$arguments): bool;
 
     /**
      * Create or retrieve a role by name.
@@ -95,6 +122,27 @@ interface AccessManagerInterface
      * @return Permission
      */
     public function ensurePermission(string|Permission $permission, ?string $description = null, ?string $namespace = null): Permission;
+
+    /**
+     * Create a new role.
+     *
+     * @param string|Role $role
+     * @param array $permissions Array of permission names or entities.
+     * @param string|null $description
+     * @param string|null $namespace
+     * @return Role
+     */
+    public function addRole(string|Role $role, array $permissions = [], ?string $description = null, ?string $namespace = null): Role;
+
+    /**
+     * Create a new permission.
+     *
+     * @param string|Permission $permission
+     * @param string|null $description
+     * @param string|null $namespace
+     * @return Permission
+     */
+    public function addPermission(string|Permission $permission, ?string $description = null, ?string $namespace = null): Permission;
 
     /**
      * Save an existing role's changes to persistent storage.
@@ -121,6 +169,12 @@ interface AccessManagerInterface
     public function deleteRole(Role $role): void;
 
     /**
+     * Clears cache
+     * @return void
+     */
+    public function clearCache(): void;
+
+    /**
      * Retrieve a role by its unique name.
      *
      * @param string $name The role name.
@@ -143,8 +197,9 @@ interface AccessManagerInterface
      *
      * @param object $user The user object.
      * @param string|Role $role The role name or entity.
+     * @param array $context Optional context for the assignment.
      */
-    public function assignRole(object $user, string|Role $role): void;
+    public function assignRole(object $user, string|Role $role, array $context = []): void;
 
     /**
      * Revoke a role from a user.
@@ -186,8 +241,10 @@ interface AccessManagerInterface
      *
      * @param object $user The user object.
      * @param string|Permission $permission The permission name or entity.
+     * @param string|null $reason Optional reason for denial.
+     * @param \DateTimeInterface|null $expiresAt Optional expiration date.
      */
-    public function deny(object $user, string|Permission $permission, ?string $reason = null): void;
+    public function deny(object $user, string|Permission $permission, ?string $reason = null, ?\DateTimeInterface $expiresAt = null): void;
 
     /**
      * Remove an explicit denial for a user.
@@ -215,6 +272,41 @@ interface AccessManagerInterface
     public function getDeniedPermissions(object $user): array;
 
     /**
+     * Explicitly deny a role to a user.
+     *
+     * @param object $user The user object.
+     * @param string|Role $role The role name or entity.
+     * @param string|null $reason Optional reason for denial.
+     * @param \DateTimeInterface|null $expiresAt Optional expiration date.
+     */
+    public function denyRole(object $user, string|Role $role, ?string $reason = null, ?\DateTimeInterface $expiresAt = null): void;
+
+    /**
+     * Remove an explicit role denial for a user.
+     *
+     * @param object $user The user object.
+     * @param string|Role $role The role name or entity.
+     */
+    public function undenyRole(object $user, string|Role $role): void;
+
+    /**
+     * Check if a user has an explicit denial for a role.
+     *
+     * @param object $user The user object.
+     * @param string|Role $role The role name or entity.
+     * @return bool
+     */
+    public function isRoleDenied(object $user, string|Role $role): bool;
+
+    /**
+     * Retrieve all roles explicitly denied for the user.
+     *
+     * @param object $user The user object.
+     * @return UserRoleDeny[]
+     */
+    public function getDeniedRoles(object $user): array;
+
+    /**
      * Retrieve all roles assigned to the given user.
      *
      * @param object $user The user object.
@@ -228,9 +320,19 @@ interface AccessManagerInterface
      *
      * @param object $user The user object.
      * @param array $context Optional context filter.
-     * @return Permission[]
+     * @return Permission[] List of Permission entities.
      */
     public function getUserPermissions(object $user, array $context = []): array;
+
+    /**
+     * Retrieve a flattened, compiled list of all permission names for a user.
+     * This is highly optimized and cached for performance.
+     *
+     * @param object $user
+     * @param array $context Optional context for filtering.
+     * @return string[]
+     */
+    public function getCompiledPermissions(object $user, array $context = []): array;
 
     /**
      * Retrieve ONLY direct/user-specific permissions (not through roles).
@@ -281,19 +383,28 @@ interface AccessManagerInterface
      */
     public function reconcileAccess(object $user, array $roles, ?array $permissions = null): void;
 
-    public function updateUserRole(UserRole $userRole): UserRole;
-    public function deleteUserRole(UserRole $userRole): void;
+    public function updateUserRole(BareUserRole $userRole): BareUserRole;
+    public function deleteUserRole(BareUserRole $userRole): void;
 
-    public function updateUserPermission(UserPermission $userPermission): UserPermission;
-    public function deleteUserPermission(UserPermission $userPermission): void;
+    public function updateUserPermission(BareUserPermission $userPermission): BareUserPermission;
+    public function deleteUserPermission(BareUserPermission $userPermission): void;
 
-    public function updateUserDeny(UserDeny $userDeny): UserDeny;
-    public function deleteUserDeny(UserDeny $userDeny): void;
+    public function updateUserDeny(BareUserDenyEntity $userDeny): BareUserDenyEntity;
+    public function deleteUserDeny(BareUserDenyEntity $userDeny): void;
 
-    public function updateRolePermission(RolePermission $rolePermission): RolePermission;
-    public function deleteRolePermission(RolePermission $rolePermission): void;
+    public function updateUserRoleDeny(BareUserRoleDenyEntity $userRoleDeny): BareUserRoleDenyEntity;
+    public function deleteUserRoleDeny(BareUserRoleDenyEntity $userRoleDeny): void;
 
-    public function updateRoleParent(RoleParent $roleParent): RoleParent;
-    public function deleteRoleParent(RoleParent $roleParent): void;
+    public function updateRolePermission(BareRolePermission $rolePermission): BareRolePermission;
+    public function deleteRolePermission(BareRolePermission $rolePermission): void;
+
+    public function updateRoleParent(BareRoleParent $roleParent): BareRoleParent;
+    public function deleteRoleParent(BareRoleParent $roleParent): void;
+
+    public function getRoleParents(Role $role): array;
+
+    public function isSuperAdmin(object $user): bool;
+
+    public function getConfig(): \Vima\Core\Config\VimaConfig;
 }
 

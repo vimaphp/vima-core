@@ -21,6 +21,7 @@ abstract class EnumMapper implements JsonSerializable
      * Dynamically retrieves all constants from the inheriting class.
      * * @return array<string, mixed>
      */
+    // @codeCoverageIgnoreStart
     public function jsonSerialize(): array
     {
         return (new ReflectionClass($this))->getConstants();
@@ -34,4 +35,5 @@ abstract class EnumMapper implements JsonSerializable
     {
         return (new ReflectionClass(static::class))->getConstants();
     }
+    // @codeCoverageIgnoreEnd
 }

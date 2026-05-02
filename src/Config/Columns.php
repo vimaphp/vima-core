@@ -22,6 +22,8 @@ final class Columns
     public UserPermissionColumns $userPermissions;
     public RoleParentColumns $roleParents;
     public UserDenyColumns $userDenies;
+    public UserRoleDenyColumns $userRoleDenies;
+    public AuditLogColumns $auditLogs;
 
     public function __construct(
         ?RoleColumns $roles = null,
@@ -30,7 +32,9 @@ final class Columns
         ?UserRoleColumns $userRoles = null,
         ?UserPermissionColumns $userPermissions = null,
         ?RoleParentColumns $roleParents = null,
-        ?UserDenyColumns $userDenies = null
+        ?UserDenyColumns $userDenies = null,
+        ?UserRoleDenyColumns $userRoleDenies = null,
+        ?AuditLogColumns $auditLogs = null
     ) {
         $this->roles = $roles ?? new RoleColumns();
         $this->permissions = $permissions ?? new PermissionColumns();
@@ -39,6 +43,8 @@ final class Columns
         $this->userPermissions = $userPermissions ?? new UserPermissionColumns();
         $this->roleParents = $roleParents ?? new RoleParentColumns();
         $this->userDenies = $userDenies ?? new UserDenyColumns();
+        $this->userRoleDenies = $userRoleDenies ?? new UserRoleDenyColumns();
+        $this->auditLogs = $auditLogs ?? new AuditLogColumns();
     }
 }
 
@@ -71,6 +77,7 @@ final class RolePermissionColumns
         public string $id = 'id',
         public string $roleId = 'role_id',
         public string $permissionId = 'permission_id',
+        public string $constraints = 'constraints',
     ) {
     }
 }
@@ -90,6 +97,7 @@ final class UserPermissionColumns
         public string $id = 'id',
         public string $userId = 'user_id',
         public string $permissionId = 'permission_id',
+        public string $constraints = 'constraints',
     ) {
     }
 }
@@ -112,6 +120,35 @@ final class UserDenyColumns
         public string $permissionId = 'permission_id',
         public string $namespace = 'namespace',
         public string $reason = 'reason',
+        public string $expiresAt = 'expires_at',
+        public string $createdAt = 'created_at',
+    ) {
+    }
+}
+
+final class UserRoleDenyColumns
+{
+    public function __construct(
+        public string $id = 'id',
+        public string $userId = 'user_id',
+        public string $roleId = 'role_id',
+        public string $reason = 'reason',
+        public string $expiresAt = 'expires_at',
+        public string $createdAt = 'created_at',
+    ) {
+    }
+}
+
+final class AuditLogColumns
+{
+    public function __construct(
+        public string $id = 'id',
+        public string $userId = 'user_id',
+        public string $permission = 'permission',
+        public string $namespace = 'namespace',
+        public string $result = 'result',
+        public string $reason = 'reason',
+        public string $arguments = 'arguments',
         public string $createdAt = 'created_at',
     ) {
     }

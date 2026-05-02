@@ -181,8 +181,8 @@ class Role
     public function inherit(string|Role $parent): self
     {
         if (is_string($parent)) {
-            $parent = Utils::splitPermission($parent)
-                |> (fn($parts) => new Role(name: $parts[1], namespace: $parts[0]));
+            [$ns, $name] = Utils::splitPermission($parent);
+            $parent = new Role(name: $name, namespace: $ns);
         }
 
         $exists = false;
@@ -194,11 +194,7 @@ class Role
         }
 
         if (!$exists) {
-            /**
-             * @var AccessManagerInterface
-             */
-            $manager = resolve(AccessManagerInterface::class);
-            $this->parents[] = $manager->ensureRole($parent);
+            $this->parents[] = $parent;
         }
 
         return $this;
@@ -207,14 +203,14 @@ class Role
     /**
      * Add a child role to inherit from.
      *
-     * @param Role $child
+     * @param string|Role $child
      * @return $this
      */
     public function addChild(string|Role $child): self
     {
         if (is_string($child)) {
-            $child = Utils::splitPermission($child)
-                |> (fn($parts) => new Role(name: $parts[1], namespace: $parts[0]));
+            [$ns, $name] = Utils::splitPermission($child);
+            $child = new Role(name: $name, namespace: $ns);
         }
 
         $exists = false;
@@ -226,11 +222,7 @@ class Role
         }
 
         if (!$exists) {
-            /**
-             * @var AccessManagerInterface
-             */
-            $manager = resolve(AccessManagerInterface::class);
-            $this->children[] = $manager->ensureRole($child);
+            $this->children[] = $child;
         }
 
         return $this;

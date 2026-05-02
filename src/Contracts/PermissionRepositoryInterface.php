@@ -12,7 +12,7 @@ declare(strict_types=1);
 
 namespace Vima\Core\Contracts;
 
-use Vima\Core\Entities\Permission;
+use Vima\Core\Entities\Bare\BarePermission;
 
 /**
  * Interface PermissionRepositoryInterface
@@ -23,40 +23,40 @@ use Vima\Core\Entities\Permission;
  */
 interface PermissionRepositoryInterface
 {
-    public function findByName(string $name, ?string $namespace = null): ?Permission;
+    public function findByName(string $name, ?string $namespace = null): ?BarePermission;
 
     /**
      * Find a permission by its unique identifier.
      *
      * @param int|string $id
-     * @return Permission|null
+     * @return BarePermission|null
      */
-    public function findById(int|string $id): ?Permission;
+    public function findById(int|string $id): ?BarePermission;
 
     /**
      * Retrieve all permissions, optionally filtered by namespace.
      * 
      * @param string|null $namespace
      * @param bool $onlyGlobal
-     * @return Permission[]
+     * @return BarePermission[]
      */
     public function all(?string $namespace = null, bool $onlyGlobal = false): array;
 
     /**
      * Persist or update a permission.
      *
-     * @param Permission $permission
-     * @return Permission The persisted permission entity.
+     * @param BarePermission $permission
+     * @return BarePermission The persisted permission entity.
      */
-    public function save(Permission $permission): Permission;
+    public function save(BarePermission $permission): BarePermission;
 
     /**
      * Remove a permission from storage.
      *
-     * @param Permission $permission
+     * @param BarePermission $permission
      * @return void
      */
-    public function delete(Permission $permission): void;
+    public function delete(BarePermission $permission): void;
 
     /**
      * Remove all permissions from storage.

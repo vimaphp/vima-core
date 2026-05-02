@@ -8,16 +8,21 @@
  * file that was distributed with this source code.
  */
 
-
 declare(strict_types=1);
 
-namespace Vima\Core\Config;
+namespace Vima\Core\Entities\Bare;
 
-final class Models
+/**
+ * Class BareRoleParent
+ * 
+ * Bare data entity representing role inheritance.
+ */
+class BareRoleParent
 {
     public function __construct(
-        public string $roles,
-        public string $permissions,
+        public int|string|null $id = null,
+        public int|string|null $role_id = null,
+        public int|string|null $parent_id = null
     ) {
     }
 }

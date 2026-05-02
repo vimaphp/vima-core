@@ -63,7 +63,26 @@ $container->register(AccessManager::class, function($c) {
 });
 ```
 
-## 4. Helper Functions & Filters
+## 4. Configuration & Super Admin
+
+Your integration should allow users to configure global Vima settings, such as caching and the Super Admin bypass.
+
+```php
+use Vima\Core\Config\VimaConfig;
+
+$config = new VimaConfig(
+    superAdminRole: 'admin',      // Role name that bypasses checks
+    superAdminBypass: true,       // Enable/disable bypass
+    cacheEnabled: true,           // Enable authorization caching
+    cacheTTL: 3600                // Cache duration
+);
+
+$container->register(VimaConfig::class, $config);
+```
+
+The `superAdminBypass` feature allows users with the designated `superAdminRole` to skip all RBAC and ABAC evaluations, providing a "god-mode" for the application.
+
+## 5. Helper Functions & Filters
 
 To make Vima feel "native", provide framework-specific helpers.
 

@@ -39,6 +39,7 @@ class Permission
         public ?string $description = null,
         public int|string|null $id = null,
         public bool $denied = false,
+        public ?array $constraints = []
     ) {
         if (str_contains($this->name, ':')) {
             [$ns, $n] = explode(':', $this->name, 2);

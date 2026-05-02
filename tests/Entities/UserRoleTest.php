@@ -19,7 +19,7 @@ it('can be instantiated without id', function () {
 });
 
 it('can be created using the define static method', function () {
-    $role = UserRole::define(user_id: 7, role_id: 3);
+    $role = UserRole::define(userId: 7, roleId: 3);
 
     expect($role)->toBeInstanceOf(UserRole::class)
         ->and($role->id)->toBeNull()

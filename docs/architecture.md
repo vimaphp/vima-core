@@ -38,12 +38,24 @@ The `AccessManager` orchestrates RBAC and ABAC checks. It handles:
 The `PolicyRegistry` maps "abilities" (e.g., `edit`, `delete`) to specific logic. It supports:
 - **Callback Policies**: Simple closures for quick checks.
 - **Class-Based Policies**: Classes implementing `PolicyInterface` for complex resource-based rules.
+    - **Naming Convention**: By default, an ability like `edit` maps to `canEdit()`.
+    - **Attribute Mapping**: Use the `#[MapToPermission]` attribute to explicitly map a method to a permission or isolate it to a specific namespace.
 
 ### UserIdentity & UserInterface
 Vima doesn't require users to be of a specific class. Instead, it expects user objects to implement `UserInterface` (for getting IDs and roles) or uses a `UserResolver` to bridge existing user models.
 
 ## Hybrid RBAC + ABAC
 Vima allows you to mix both systems. A `can()` check can first verify if a user has a permission via a role (RBAC) and then refine that check with a context-aware policy (ABAC). Both RBAC and ABAC checks support optional namespacing to isolate resources.
+
+## Role Inheritance
+Vima supports hierarchical roles. A role can have one or more "parent" roles, inheriting all permissions from its parents. This allows for a structured access control system where higher-level roles automatically include the permissions of lower-level ones.
+
+## Super Admin Bypass
+Vima includes a built-in mechanism to allow certain users to bypass all authorization checks (RBAC and ABAC). This is controlled by two configuration settings:
+- **`superAdminRole`**: The name of the role (or a `SuperAdmin` entity) that designates a user as a super admin.
+- **`superAdminBypass`**: A boolean flag (defaults to `true`) that, when enabled, causes `AccessManager` to grant full access to any user with the super admin role.
+
+When bypass is enabled, methods like `can()`, `isPermitted()`, and `enforce()` will return `true` (or proceed without exception) immediately if the user is identified as a super admin.
 
 ## Schema-Driven Integration
 To facilitate easier framework bridging, Vima includes a metadata schema system. Instead of hardcoding database fields, integrators can use the `Schema` DTOs to dynamically discover the required data structure. This ensures that features like "Namespace" or "Context" are automatically supported by all framework-specific adapters.

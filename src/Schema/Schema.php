@@ -29,8 +29,11 @@ class Schema
         return $this->tables;
     }
 
-    public function getTable(string $name): ?Table
+    public function getTable(string $name): Table
     {
-        return $this->tables[$name] ?? null;
+        if (!isset($this->tables[$name])) {
+            throw new \RuntimeException("Table {$name} not found in schema.");
+        }
+        return $this->tables[$name];
     }
 }

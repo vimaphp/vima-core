@@ -14,12 +14,15 @@ namespace Vima\Core\Services;
 
 use Vima\Core\Contracts\EventDispatcherInterface;
 use Vima\Core\Contracts\{PolicyInterface, PolicyRegistryInterface};
+use Vima\Core\Contracts\CacheInterface;
 use Vima\Core\DTOs\AccessContext;
 use Vima\Core\Events\DefaultEventDispatcher;
 use Vima\Core\Events\Policy\PolicyRegistered;
 use Vima\Core\Exceptions\PolicyNotFoundException;
 use Vima\Core\Exceptions\PolicyMethodNotFoundException;
 use Vima\Core\Support\Utils;
+use Vima\Core\Attributes\MapToPermission;
+use ReflectionClass;
 use function Vima\Core\resolve;
 
 /**
@@ -38,11 +41,16 @@ class PolicyRegistry implements PolicyRegistryInterface
     /** @var array<string, string> */
     private array $policiesClasses = [];
 
-    private ?EventDispatcherInterface $dispatcher;
+    /** @var array<string, array<string, string>> Cache for class method mappings */
+    private array $methodMappingCache = [];
 
-    public function __construct(?EventDispatcherInterface $dispatcher = null)
+    private ?EventDispatcherInterface $dispatcher;
+    private ?CacheInterface $cache;
+
+    public function __construct(?EventDispatcherInterface $dispatcher = null, ?CacheInterface $cache = null)
     {
         $this->dispatcher = $dispatcher ?? (defined('Vima\Core\Contracts\EventDispatcherInterface') ? \Vima\Core\resolve(EventDispatcherInterface::class) : new DefaultEventDispatcher());
+        $this->cache = $cache ?? (defined('Vima\Core\Contracts\CacheInterface') ? \Vima\Core\resolve(CacheInterface::class) : null);
     }
 
     private static $instance = null;
@@ -54,13 +62,11 @@ class PolicyRegistry implements PolicyRegistryInterface
      */
     public static function instance(): PolicyRegistry
     {
-        $instance = self::$instance;
-
-        if ($instance === null) {
-            $instance = new self();
+        if (self::$instance === null) {
+            self::$instance = new self();
         }
 
-        return $instance;
+        return self::$instance;
     }
 
     /**
@@ -93,57 +99,75 @@ class PolicyRegistry implements PolicyRegistryInterface
     }
 
     /**
+     * @return array<string, string>
+     */
+    public function getRegisteredClasses(): array
+    {
+        return $this->policiesClasses;
+    }
+
+    /**
      * Evaluate a registered policy or class method.
      *
      * @param object $user The user object.
      * @param string $ability The ability name (e.g., 'posts.edit' or 'edit').
      * @param mixed ...$arguments Contextual arguments. Usually first is the resource.
-     * @return bool
+     * @return bool|\Vima\Core\DTOs\AccessResponse
      * @throws \Exception If a resource is provided but no policy is registered.
      */
-    public function evaluate(object $user, string $ability, ?string $namespace = null, ...$arguments): bool
+    public function evaluate(object $user, string $ability, ?string $namespace = null, ...$arguments): bool|\Vima\Core\DTOs\AccessResponse
     {
         [$permNamespace, $permName] = Utils::splitPermission($ability);
         $permNamespace ??= $namespace;
 
+        $context = new AccessContext(
+            $user,
+            $permName,
+            resolve(AccessManager::class),
+            $permNamespace,
+        );
+
+        $resourceArg = $arguments[0] ?? null;
+
+        if (isset($resourceArg)) {
+            unset($arguments[0]);
+            $arguments = array_values($arguments);
+            $context->additionalContext = $arguments;
+        }
+
+        $result = null;
 
         // 1. Try class-based policy if resource is provided
-        if (!empty($arguments) && is_object($arguments[0])) {
-            $resource = $arguments[0];
-            $resourceClass = get_class($resource);
-            unset($arguments[0]); // Remove resource from arguments passed to policy methods
-            $arguments = array_values($arguments); // Reindex arguments array
+        if ($resourceArg && is_object($resourceArg)) {
+            $resourceClass = get_class($resourceArg);
+            $policyClass = $this->resolvePolicyClass($resourceClass);
 
-            $context = new AccessContext(
-                $user,
-                $permName,
-                resolve(AccessManager::class),
-                $permNamespace,
-                $arguments
-            );
+            if ($policyClass) {
+                $method = $this->resolveMethodViaAttributes($policyClass, $permName, $permNamespace);
 
-            if (isset($this->policiesClasses[$resourceClass])) {
-                $policyClass = $this->policiesClasses[$resourceClass];
-                $method = $this->resolveMethodName($permName);
+                if (!$method) {
+                    $method = $this->resolveMethodName($permName);
+                }
 
                 $policy = new $policyClass();
                 if (method_exists($policy, $method)) {
-                    return (bool) $policy->$method($context, $resource);
+                    $result = $policy->$method($context, $resourceArg);
+                } else {
+                    throw new PolicyMethodNotFoundException($policyClass, $method);
                 }
-
-                throw new PolicyMethodNotFoundException($policyClass, $method);
             }
-
-            throw new PolicyNotFoundException("No policy class registered for resource: {$resourceClass}");
         }
 
-
-        // 2. Fallback to callback-based policies
-        if (!isset($this->policies[$permName])) {
-            return false;
+        // 2. Fallback to callback-based policies if no class policy result
+        if ($result === null && isset($this->policies[$permName])) {
+            $result = call_user_func($this->policies[$permName], $context, $resourceArg);
         }
 
-        return (bool) call_user_func($this->policies[$ability], $user, ...$arguments);
+        if ($result === null) {
+            throw new PolicyNotFoundException($ability);
+        }
+
+        return $result;
     }
 
     /**
@@ -170,6 +194,54 @@ class PolicyRegistry implements PolicyRegistryInterface
     }
 
     /**
+     * Resolves a method name using the MapToPermission attribute.
+     *
+     * @param string $policyClass
+     * @param string $permission
+     * @param string|null $namespace
+     * @return string|null
+     */
+    protected function resolveMethodViaAttributes(string $policyClass, string $permission, ?string $namespace = null): ?string
+    {
+        if (!isset($this->methodMappingCache[$policyClass])) {
+            $cacheKey = 'vima:policies:' . str_replace('\\', '_', $policyClass) . ':methods';
+            $cached = $this->cache ? $this->cache->get($cacheKey) : null;
+
+            if ($cached !== null) {
+                $this->methodMappingCache[$policyClass] = $cached;
+            } else {
+                $this->methodMappingCache[$policyClass] = [];
+                $reflection = new ReflectionClass($policyClass);
+
+                foreach ($reflection->getMethods() as $method) {
+                    $attributes = $method->getAttributes(MapToPermission::class);
+                    foreach ($attributes as $attribute) {
+                        /** @var MapToPermission $map */
+                        $map = $attribute->newInstance();
+                        $key = ($map->namespace ? $map->namespace . ':' : '') . $map->permission;
+                        $this->methodMappingCache[$policyClass][$key] = $method->getName();
+                    }
+                }
+
+                if ($this->cache) {
+                    $this->cache->set($cacheKey, $this->methodMappingCache[$policyClass], 3600);
+                }
+            }
+        }
+
+        // Check for namespaced match first
+        if ($namespace) {
+            $namespacedKey = $namespace . ':' . $permission;
+            if (isset($this->methodMappingCache[$policyClass][$namespacedKey])) {
+                return $this->methodMappingCache[$policyClass][$namespacedKey];
+            }
+        }
+
+        // Check for non-namespaced match
+        return $this->methodMappingCache[$policyClass][$permission] ?? null;
+    }
+
+    /**
      * Helper to mass-register policies.
      *
      * @param array<string, callable> $rules
@@ -190,14 +262,30 @@ class PolicyRegistry implements PolicyRegistryInterface
      * Check if a policy exists for the given action or resource.
      *
      * @param string $ability
-     * @param mixed ...$arguments
+     * @param mixed $resource Optional resource to check for class-based policy existence.
      * @return bool
      */
-    public function has(string $ability, ...$arguments): bool
+    public function has(string $ability, ?string $resource = null): bool
     {
-        if (!empty($arguments) && is_object($arguments[0])) {
-            return isset($this->policiesClasses[get_class($arguments[0])]);
+        if ($resource) {
+            $classPolicy = $this->resolvePolicyClass($resource);
+
+            if ($classPolicy) {
+                return true;
+            }
+
+            // If no then use the ability name to check for callback-based policy as fallback
         }
-        return isset($this->policies[$ability]);
+        return (bool) $this->resolvePolicyCallback($ability);
+    }
+
+    private function resolvePolicyClass(string $resourceClass): ?string
+    {
+        return $this->policiesClasses[$resourceClass] ?? null;
+    }
+
+    private function resolvePolicyCallback(string $ability): ?callable
+    {
+        return $this->policies[$ability] ?? null;
     }
 }

@@ -3,22 +3,22 @@
 namespace Vima\Core\Tests\Fixtures\Storage;
 
 use Vima\Core\Contracts\PermissionRepositoryInterface;
-use Vima\Core\Entities\Permission;
+use Vima\Core\Entities\Bare\BarePermission;
 
 class InMemoryPermissionRepository implements PermissionRepositoryInterface
 {
-    /** @var Permission[] */
+    /** @var BarePermission[] */
     private array $permissions = [];
 
-    private int $id = 0;
+    private int $id = 1;
 
-    public function findByName(string $name, ?string $namespace = null): ?Permission
+    public function findByName(string $name, ?string $namespace = null): ?BarePermission
     {
-        $key = $namespace . ':' . $name;
+        $key = ($namespace ?? 'global') . ':' . $name;
         return $this->permissions[$key] ?? null;
     }
 
-    public function findById($id): ?Permission
+    public function findById(int|string $id): ?BarePermission
     {
         foreach ($this->permissions as $p) {
             if ($p->id == $id) {
@@ -28,22 +28,21 @@ class InMemoryPermissionRepository implements PermissionRepositoryInterface
         return null;
     }
 
-    public function save(Permission $permission): Permission
+    public function save(BarePermission $permission): BarePermission
     {
         if ($permission->id === null) {
-            $permission->id = $this->id;
-            $this->id++;
+            $permission->id = $this->id++;
         }
 
-        $key = $permission->namespace . ':' . $permission->name;
+        $key = ($permission->namespace ?? 'global') . ':' . $permission->name;
         $this->permissions[$key] = $permission;
 
         return $permission;
     }
 
-    public function delete(Permission $permission): void
+    public function delete(BarePermission $permission): void
     {
-        $key = $permission->namespace . ':' . $permission->name;
+        $key = ($permission->namespace ?? 'global') . ':' . $permission->name;
         unset($this->permissions[$key]);
     }
 
@@ -63,6 +62,6 @@ class InMemoryPermissionRepository implements PermissionRepositoryInterface
     public function deleteAll(): void
     {
         $this->permissions = [];
-        $this->id = 0;
+        $this->id = 1;
     }
 }

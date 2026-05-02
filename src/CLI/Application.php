@@ -20,6 +20,8 @@ use Vima\Core\CLI\Commands\AssignRoleCommand;
 use Vima\Core\CLI\Commands\RevokeRoleCommand;
 use Vima\Core\CLI\Commands\GrantPermissionCommand;
 use Vima\Core\CLI\Commands\GenerateTsCommand;
+use Vima\Core\CLI\Commands\OptimizeCommand;
+use Vima\Core\CLI\Commands\ClearCacheCommand;
 
 class Application extends ConsoleApp
 {
@@ -36,6 +38,8 @@ class Application extends ConsoleApp
             new RevokeRoleCommand(),
             new GrantPermissionCommand(),
             new GenerateTsCommand(),
+            new OptimizeCommand(),
+            new ClearCacheCommand(),
         ]);
     }
 }

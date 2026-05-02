@@ -14,6 +14,7 @@ declare(strict_types=1);
 namespace Vima\Core\Entities;
 
 use Vima\Core\Contracts\AccessManagerInterface;
+use Vima\Core\Contracts\UserInterface;
 use function Vima\Core\resolve;
 
 /**
@@ -23,7 +24,7 @@ use function Vima\Core\resolve;
  *
  * @package Vima\Core\Entities
  */
-class VimaIdentity
+class VimaIdentity implements UserInterface
 {
     /**
      * VimaIdentity constructor.
@@ -35,6 +36,16 @@ class VimaIdentity
         public int|string $id,
         public array $roles = [],
     ) {
+    }
+
+    public function vimaGetId(): string|int
+    {
+        return $this->id;
+    }
+
+    public function vimaGetRoles(): array
+    {
+        return array_map(fn($role) => $role->name, $this->roles);
     }
 
     /**
@@ -56,7 +67,7 @@ class VimaIdentity
     {
         /** @var AccessManagerInterface $manager */
         $manager = resolve(AccessManagerInterface::class);
-        $manager->reconcileAccess((object)['id' => $this->id], $this->roles);
+        $manager->reconcileAccess($this, $this->roles);
     }
 
     /**
@@ -87,7 +98,7 @@ class VimaIdentity
     {
         /** @var AccessManagerInterface $manager */
         $manager = resolve(AccessManagerInterface::class);
-        return $manager->can((object)['id' => $this->id], $permission, null, $context);
+        return $manager->can($this, $permission, null, $context);
     }
 
     /**
@@ -100,6 +111,6 @@ class VimaIdentity
     {
         /** @var AccessManagerInterface $manager */
         $manager = resolve(AccessManagerInterface::class);
-        return $manager->isDenied((object)['id' => $this->id], $permission);
+        return $manager->isDenied($this, $permission);
     }
 }

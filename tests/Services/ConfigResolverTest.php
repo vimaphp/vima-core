@@ -1,14 +1,6 @@
 <?php
 
-use Vima\Core\Config\Columns;
-use Vima\Core\Config\Models;
-use Vima\Core\Config\PermissionColumns;
-use Vima\Core\Config\RoleColumns;
-use Vima\Core\Config\RolePermissionColumns;
 use Vima\Core\Config\Setup;
-use Vima\Core\Config\Tables;
-use Vima\Core\Config\UserMethods;
-use Vima\Core\Config\UserRoleColumns;
 use Vima\Core\Config\VimaConfig;
 use Vima\Core\Entities\{Permission, Role};
 use Vima\Core\Services\{ConfigResolver, ConfigSerializer};

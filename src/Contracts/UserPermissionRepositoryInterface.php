@@ -10,28 +10,28 @@
 
 namespace Vima\Core\Contracts;
 
-use Vima\Core\Entities\UserPermission;
+use Vima\Core\Entities\Bare\BareUserPermission;
 
 interface UserPermissionRepositoryInterface
 {
     /**
      * Returns the user permissions
-     * @param int $userId
-     * @return UserPermission[]
+     * @param int|string $userId
+     * @return BareUserPermission[]
      */
-    public function findByUserId(int $userId): array;
+    public function findByUserId(int|string $userId): array;
 
     /**
      * Add the user permissions mappin to storage
-     * @param \Vima\Core\Entities\UserPermission $permission
+     * @param BareUserPermission $permission
      * @return void
      */
-    public function add(UserPermission $permission): void;
+    public function add(BareUserPermission $permission): void;
 
     /**
      * Removes user permission to storage
-     * @param \Vima\Core\Entities\UserPermission $permission
+     * @param BareUserPermission $permission
      * @return void
      */
-    public function remove(UserPermission $permission): void;
+    public function remove(BareUserPermission $permission): void;
 }

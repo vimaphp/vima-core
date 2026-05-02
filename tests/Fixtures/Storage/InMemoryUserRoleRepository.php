@@ -3,71 +3,37 @@ declare(strict_types=1);
 
 namespace Vima\Core\Tests\Fixtures\Storage;
 
-use Vima\Core\Contracts\RoleRepositoryInterface;
 use Vima\Core\Contracts\UserRoleRepositoryInterface;
-use Vima\Core\DependencyContainer;
-use Vima\Core\Entities\UserRole;
-use Vima\Core\Entities\Role;
-use function Vima\Core\resolve;
+use Vima\Core\Entities\Bare\BareUserRole;
 
 class InMemoryUserRoleRepository implements UserRoleRepositoryInterface
 {
-    /** @var UserRole[] */
+    /** @var BareUserRole[] */
     public array $userRoles = [];
-
-    /** @var Role[] indexed by role_id */
-    private array $roles = [];
-
-    public function __construct(array $roles = [])
-    {
-        // preload available roles if passed
-        foreach ($roles as $role) {
-            if ($role instanceof Role && $role->id !== null) {
-                $this->roles[(string) $role->id] = $role;
-            }
-        }
-    }
 
     /**
      * @param int|string $user_id
-     * @param bool $resolve Whether to return full Role objects with permissions or not
-     * @return Role[]
+     * @return BareUserRole[]
      */
-    public function getRolesForUser(int|string $user_id, bool $resolve = false, array $context = []): array
+    public function getRolesForUser(int|string $user_id): array
     {
-        $roles = [];
-
-        /** @var RoleRepositoryInterface */
-        $rolesRepo = resolve(RoleRepositoryInterface::class);
-
-        foreach ($this->userRoles as $ur) {
-            if ((string) $user_id === (string) $ur->user_id) {
-                // If context filter is provided, only return roles matching the context
-                if (!empty($context) && $ur->context !== $context) {
-                    continue;
-                }
-
-                $role = $rolesRepo->findById($ur->role_id, $resolve);
-
-                if ($role) {
-                    $roles[] = $role;
-                }
-            }
-        }
-
-        return $roles;
+        return array_values(
+            array_filter(
+                $this->userRoles,
+                fn(BareUserRole $ur) => (string) $user_id === (string) $ur->user_id
+            )
+        );
     }
 
-    public function assign(UserRole $userRole): void
+    public function assign(BareUserRole $userRole): void
     {
-
         // prevent duplicate (user_id + role_id)
         foreach ($this->userRoles as $ur) {
             if (
                 (string) $ur->user_id === (string) $userRole->user_id &&
-                (string) $ur->role_id === (string) $userRole->role_id &&
-                $ur->context === $userRole->context
+                (string) $ur->role_id === (string) $userRole->role_id
             ) {
+                $ur->context = $userRole->context;
                 return;
             }
         }
@@ -80,12 +46,12 @@ class InMemoryUserRoleRepository implements UserRoleRepositoryInterface
         $this->userRoles[] = $userRole;
     }
 
-    public function revoke(UserRole $userRole): void
+    public function revoke(BareUserRole $userRole): void
     {
         $this->userRoles = array_values(
             array_filter(
                 $this->userRoles,
-                fn(UserRole $ur) =>
+                fn(BareUserRole $ur) =>
                 !(
                     (string) $ur->user_id === (string) $userRole->user_id &&
                     (string) $ur->role_id === (string) $userRole->role_id

@@ -25,7 +25,6 @@ use Vima\Core\Events\Sync\SyncFinished;
 use Vima\Core\Events\DefaultEventDispatcher;
 use Vima\Core\Contracts\CacheInterface;
 use Vima\Core\Support\Utils;
-use function Vima\Core\resolve;
 
 /**
  * Class SyncService

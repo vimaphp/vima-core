@@ -19,11 +19,13 @@ use Psr\Container\ContainerInterface;
 use ReflectionUnionType;
 use RuntimeException;
 use Vima\Core\Contracts\PolicyRegistryInterface;
+use Vima\Core\Contracts\CacheInterface;
 use Vima\Core\Services\AccessManager;
 use Vima\Core\Services\PermissionManager;
 use Vima\Core\Services\PolicyRegistry;
 use Vima\Core\Services\RoleManager;
 use Vima\Core\Services\UserResolver;
+use Vima\Core\Services\SymfonyCacheAdapter;
 
 /**
  * Class DependencyContainer
@@ -73,6 +75,7 @@ class DependencyContainer implements ContainerInterface
     {
         if (self::$instance === null) {
             self::$instance = new self();
+            self::$instance->register(CacheInterface::class, fn() => new SymfonyCacheAdapter());
         }
 
         return self::$instance;
@@ -273,44 +276,5 @@ class DependencyContainer implements ContainerInterface
         self::getInstance();
 
         // self::initAccessManager();
-    }
-
-    /**
-     * Initialize the container with common system interface bindings and register the AccessManager.
-     *
-     * Example usage (tests):
-     * ```php
-     * DependencyContainer::initAccessManager([
-     *     RoleRepositoryInterface::class => new InMemoryRoleRepository(),
-     *     PermissionRepositoryInterface::class => new InMemoryPermissionRepository(),
-     *     // ... other repository implementations
-     * ]);
-     * ```
-     *
-     * @param array $bindings Key => concrete mappings for interfaces and services.
-     * @return DependencyContainer The container instance for chaining.
-     */
-    public static function initAccessManager(array $bindings = []): DependencyContainer
-    {
-        $container = self::getInstance();
-        // Register provided bindings (repositories, resolvers, etc.)
-        $container->registerMany($bindings);
-        // Ensure core services are bound if not already provided.
-        $coreBindings = [
-                // Core services that can be auto-wired; placeholders allow auto-wiring.
-            UserResolver::class => null,
-            PolicyRegistryInterface::class => PolicyRegistry::class,
-            RoleManager::class => null,
-            PermissionManager::class => null,
-            AccessManager::class => null,
-        ];
-        foreach ($coreBindings as $abstract => $concrete) {
-            if (!isset($container->bindings[$abstract]) && !isset($container->instances[$abstract])) {
-                $container->register($abstract, $concrete);
-            }
-        }
-        // Finally, register AccessManager for auto-wiring.
-        $container->register(AccessManager::class, null);
-        return $container;
     }
 }

@@ -8,65 +8,84 @@
  * file that was distributed with this source code.
  */
 
-
 declare(strict_types=1);
 
 namespace Vima\Core\Entities;
 
 use Vima\Core\Contracts\AccessManagerInterface;
-use Vima\Core\Contracts\PermissionRepositoryInterface;
 use Vima\Core\Contracts\UserRepositoryInterface;
+use Vima\Core\Entities\Bare\BareUserPermission;
 use function Vima\Core\resolve;
 
+/**
+ * Class UserPermission
+ * 
+ * Represents a direct permission assignment to a user.
+ */
 class UserPermission
 {
     public function __construct(
+        public int|string|null $user_id = null,
+        public int|string|null $permission_id = null,
         public int|string|null $id = null,
-        public int|string $user_id,
-        public int|string $permission_id
+        public ?array $constraints = [],
+        public ?Permission $permission = null,
+        public ?object $user = null
     ) {
     }
 
-    public static function define(int|string $user_id, int|string $permission_id): UserPermission
+    public static function define(int|string $userId, int|string $permissionId, array $constraints = []): self
     {
-        return new self(user_id: $user_id, permission_id: $permission_id, id: null);
+        return new self(user_id: $userId, permission_id: $permissionId, constraints: $constraints);
     }
 
     public function save(): self
     {
         /** @var AccessManagerInterface $manager */
         $manager = resolve(AccessManagerInterface::class);
-        return $manager->updateUserPermission($this);
+        $bare = new BareUserPermission($this->id, $this->user_id, $this->permission_id, $this->constraints);
+        $saved = $manager->updateUserPermission($bare);
+        $this->id = $saved->id;
+        return $this;
     }
 
     public function delete(): void
     {
         /** @var AccessManagerInterface $manager */
         $manager = resolve(AccessManagerInterface::class);
-        $manager->deleteUserPermission($this);
+        $bare = new BareUserPermission($this->id, $this->user_id, $this->permission_id, $this->constraints);
+        $manager->deleteUserPermission($bare);
     }
 
-    /**
-     * Get the permission entity.
-     *
-     * @return Permission
-     */
-    public function getPermission(): Permission
+    public function getPermission(): ?Permission
     {
-        /** @var PermissionRepositoryInterface $repo */
-        $repo = resolve(PermissionRepositoryInterface::class);
-        return $repo->findById($this->permission_id);
+        if ($this->permission) {
+            return $this->permission;
+        }
+
+        if (!$this->permission_id) {
+            return null;
+        }
+
+        /** @var \Vima\Core\Services\PermissionManager $manager */
+        $manager = resolve(\Vima\Core\Services\PermissionManager::class);
+        $this->permission = $manager->find($this->permission_id);
+        return $this->permission;
     }
 
-    /**
-     * Get the resolved user object.
-     *
-     * @return object|null
-     */
     public function getUser(): ?object
     {
+        if ($this->user) {
+            return $this->user;
+        }
+
+        if (!$this->user_id) {
+            return null;
+        }
+
         /** @var UserRepositoryInterface $repo */
         $repo = resolve(UserRepositoryInterface::class);
-        return $repo->findById($this->user_id);
+        $this->user = $repo->findById($this->user_id);
+        return $this->user;
     }
 }

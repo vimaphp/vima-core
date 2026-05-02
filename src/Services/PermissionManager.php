@@ -14,6 +14,7 @@ namespace Vima\Core\Services;
 use Vima\Core\Contracts\PermissionRepositoryInterface;
 use Vima\Core\Contracts\UserPermissionRepositoryInterface;
 use Vima\Core\Entities\Permission;
+use Vima\Core\Entities\Bare\BarePermission;
 use Vima\Core\Events\Repository\RepositoryAction;
 use Vima\Core\Contracts\EventDispatcherInterface;
 use Vima\Core\Support\Utils;
@@ -48,33 +49,53 @@ class PermissionManager
     {
         $permission = $name instanceof Permission ? $name : new Permission($name, namespace: $namespace);
 
-        $permission->description = $description;
+        if ($description !== null) {
+            $permission->description = $description;
+        }
 
-        return $this->permissions->save(permission: $permission);
+        return $this->save($permission);
     }
 
     /**
      * Find a permission by name or instance.
      *
-     * @param string|Permission $permission
+     * @param string|Permission|BarePermission $permission
      * @return Permission|null
      */
-    public function find(string|Permission $permission, ?string $namespace = null): ?Permission
+    public function find(int|string|Permission|BarePermission $permission, ?string $namespace = null): ?Permission
     {
         $id = null;
-        if (is_string($permission)) {
-            [$namespace, $name] = Utils::splitPermission($permission);
+        $name = null;
+
+        if (is_int($permission)) {
+            $id = $permission;
+        } elseif (is_string($permission)) {
+            [$resolvedNamespace, $name] = Utils::splitPermission($permission);
+            $namespace = $resolvedNamespace ?? $namespace;
+        } elseif ($permission instanceof BarePermission) {
+            $id = $permission->id;
+            $name = $permission->name;
+            $namespace = $permission->namespace;
         } else {
             $id = $permission->id;
             $name = $permission->name;
             $namespace = $permission->namespace;
         }
 
-        $permission = $id
+        $barePermission = $id
             ? $this->permissions->findById($id)
-            : $this->permissions->findByName($name, $namespace);
+            : $this->permissions->findByName((string) $name, $namespace);
 
-        return $permission;
+        if (!$barePermission) {
+            return null;
+        }
+
+        return new Permission(
+            name: $barePermission->name,
+            namespace: $barePermission->namespace,
+            description: $barePermission->description,
+            id: $barePermission->id
+        );
     }
 
     /**
@@ -90,7 +111,17 @@ class PermissionManager
         $permissons = [];
 
         foreach ($userPermissions as $up) {
-            $permissons[] = $this->permissions->findById($up->permissionId ?? $up->permission_id);
+            $barePerm = $this->permissions->findById($up->permission_id);
+            if ($barePerm) {
+                $p = new Permission(
+                    name: $barePerm->name,
+                    namespace: $barePerm->namespace,
+                    description: $barePerm->description,
+                    id: $barePerm->id,
+                    constraints: $up->constraints ?? []
+                );
+                $permissons[] = $p;
+            }
         }
 
         return array_filter($permissons);
@@ -99,12 +130,18 @@ class PermissionManager
     /**
      * Delete a permission.
      *
-     * @param Permission $name
+     * @param Permission $permission
      * @return void
      */
-    public function delete(Permission $name): void
+    public function delete(Permission $permission): void
     {
-        $this->permissions->delete($name);
+        $bare = new BarePermission(
+            id: $permission->id,
+            name: $permission->name,
+            namespace: $permission->namespace,
+            description: $permission->description
+        );
+        $this->permissions->delete($bare);
     }
 
     /**
@@ -116,10 +153,20 @@ class PermissionManager
     public function save(Permission $permission): Permission
     {
         $existing = $this->find($permission);
-        $permission = $this->permissions->save($permission);
+
+        $bare = new BarePermission(
+            id: $permission->id,
+            name: $permission->name,
+            namespace: $permission->namespace,
+            description: $permission->description
+        );
+
+        $bare = $this->permissions->save($bare);
+
+        $permission->id = $bare->id;
 
         if ($existing) {
-             $this->dispatcher?->dispatch(new RepositoryAction(
+            $this->dispatcher?->dispatch(new RepositoryAction(
                 action: RepositoryAction::ACTION_UPDATED,
                 entityClass: Permission::class,
                 payload: $permission,
@@ -142,12 +189,18 @@ class PermissionManager
      */
     public function all(?string $namespace = null): array
     {
-        return $this->permissions->all($namespace);
+        $barePermissions = $this->permissions->all($namespace);
+        return array_map(fn($bare) => new Permission(
+            name: $bare->name,
+            namespace: $bare->namespace,
+            description: $bare->description,
+            id: $bare->id
+        ), $barePermissions);
     }
 
     public function findByName(string $name, ?string $namespace = null): ?Permission
     {
-        return $this->permissions->findByName($name, $namespace);
+        return $this->find($name, $namespace);
     }
 
     public function deleteAll(): void

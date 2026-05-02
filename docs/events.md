@@ -16,6 +16,31 @@ These events are fired by `Vima\Core\Services\SyncService`.
 | `Vima\Core\Events\Sync\SyncStarted` | `vima.sync.started` | Fired before synchronization begins. |
 | `Vima\Core\Events\Sync\SyncFinished` | `vima.sync.finished` | Fired after synchronization completes. |
 
+### Access & Authorization Events
+These events are fired by `Vima\Core\Services\AccessManager` during authorization checks.
+
+| Event Class | CI4 Name | Description |
+|---|---|---|
+| `Vima\Core\Events\Access\AuthorizationChecked` | `vima.access.authorization_checked` | Fired after any `can()` or policy check. |
+| `Vima\Core\Events\Access\AccessDenied` | `vima.access.denied` | Fired when an authorization check fails (e.g. in `enforce()`). |
+
+### Grant & Persistence Events
+These events are fired when roles or permissions are manually assigned or revoked.
+
+| Event Class | CI4 Name | Description |
+|---|---|---|
+| `Vima\Core\Events\Grant\RoleAssigned` | `vima.grant.role_assigned` | Fired when a role is assigned to a user. |
+| `Vima\Core\Events\Grant\RoleDetached` | `vima.grant.role_detached` | Fired when a role is revoked from a user. |
+| `Vima\Core\Events\Grant\PermissionGranted` | `vima.grant.permission_granted` | Fired when a direct permission is granted. |
+| `Vima\Core\Events\Grant\PermissionRevoked` | `vima.grant.permission_revoked` | Fired when a direct permission is revoked. |
+
+### Policy Events
+These events relate to policy management.
+
+| Event Class | CI4 Name | Description |
+|---|---|---|
+| `Vima\Core\Events\Policy\PolicyRegistered` | `vima.policy.registered` | Fired when a new policy callback or class is registered. |
+
 ### Repository Events
 These events are fired by entity repository implementations (like those in `vima/codeigniter`).
 

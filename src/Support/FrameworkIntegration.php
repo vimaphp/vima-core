@@ -82,6 +82,7 @@ class FrameworkIntegration
             ->addField(new Field('id', 'integer', unsigned: true, autoIncrement: true))
             ->addField(new Field($cols->rolePermissions->roleId, 'integer', unsigned: true))
             ->addField(new Field($cols->rolePermissions->permissionId, 'integer', unsigned: true))
+            ->addField(new Field($cols->rolePermissions->constraints, 'json', nullable: true))
             ->addPrimaryKey('id')
             ->addForeignKey(new ForeignKey($cols->rolePermissions->roleId, $tables->roles, 'id', 'CASCADE', 'CASCADE'))
             ->addForeignKey(new ForeignKey($cols->rolePermissions->permissionId, $tables->permissions, 'id', 'CASCADE', 'CASCADE'));
@@ -97,6 +98,7 @@ class FrameworkIntegration
             ->addField(new Field('id', 'integer', unsigned: true, autoIncrement: true))
             ->addField(new Field($cols->userPermissions->userId, 'string', length: 50))
             ->addField(new Field($cols->userPermissions->permissionId, 'integer', unsigned: true))
+            ->addField(new Field($cols->userPermissions->constraints, 'json', nullable: true))
             ->addPrimaryKey('id')
             ->addForeignKey(new ForeignKey($cols->userPermissions->permissionId, $tables->permissions, 'id', 'CASCADE', 'CASCADE'));
 
@@ -113,10 +115,33 @@ class FrameworkIntegration
             ->addField(new Field($cols->userDenies->userId, 'string', length: 50))
             ->addField(new Field($cols->userDenies->permissionId, 'integer', unsigned: true))
             ->addField(new Field($cols->userDenies->reason, 'text', nullable: true))
+            ->addField(new Field($cols->userDenies->expiresAt, 'datetime', nullable: true))
             ->addField(new Field('created_at', 'datetime', nullable: true))
             ->addPrimaryKey('id')
             ->addUniqueKey([$cols->userDenies->userId, $cols->userDenies->permissionId])
             ->addForeignKey(new ForeignKey($cols->userDenies->permissionId, $tables->permissions, 'id', 'CASCADE', 'CASCADE'));
+
+        $userRoleDeniesTable = (new Table($tables->userRoleDenies))
+            ->addField(new Field('id', 'integer', unsigned: true, autoIncrement: true))
+            ->addField(new Field($cols->userRoleDenies->userId, 'string', length: 50))
+            ->addField(new Field($cols->userRoleDenies->roleId, 'integer', unsigned: true))
+            ->addField(new Field($cols->userRoleDenies->reason, 'text', nullable: true))
+            ->addField(new Field($cols->userRoleDenies->expiresAt, 'datetime', nullable: true))
+            ->addField(new Field('created_at', 'datetime', nullable: true))
+            ->addPrimaryKey('id')
+            ->addUniqueKey([$cols->userRoleDenies->userId, $cols->userRoleDenies->roleId])
+            ->addForeignKey(new ForeignKey($cols->userRoleDenies->roleId, $tables->roles, 'id', 'CASCADE', 'CASCADE'));
+
+        $auditLogsTable = (new Table($tables->auditLogs))
+            ->addField(new Field('id', 'integer', unsigned: true, autoIncrement: true))
+            ->addField(new Field($cols->auditLogs->userId, 'string', length: 50, nullable: true))
+            ->addField(new Field($cols->auditLogs->permission, 'string', length: 100))
+            ->addField(new Field($cols->auditLogs->namespace, 'string', length: 100, nullable: true))
+            ->addField(new Field($cols->auditLogs->result, 'integer')) // 1 for allow, 0 for deny
+            ->addField(new Field($cols->auditLogs->reason, 'text', nullable: true))
+            ->addField(new Field($cols->auditLogs->arguments, 'text', nullable: true)) // JSON encoded
+            ->addField(new Field('created_at', 'datetime', nullable: true))
+            ->addPrimaryKey('id');
 
         $schema->addTable($rolesTable)
             ->addTable($permissionsTable)
@@ -124,7 +149,9 @@ class FrameworkIntegration
             ->addTable($userRolesTable)
             ->addTable($userPermissionsTable)
             ->addTable($roleParentsTable)
-            ->addTable($userDeniesTable);
+            ->addTable($userDeniesTable)
+            ->addTable($userRoleDeniesTable)
+            ->addTable($auditLogsTable);
 
         return $schema;
     }

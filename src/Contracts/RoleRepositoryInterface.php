@@ -12,7 +12,7 @@ declare(strict_types=1);
 
 namespace Vima\Core\Contracts;
 
-use Vima\Core\Entities\Role;
+use Vima\Core\Entities\Bare\BareRole;
 
 /**
  * Interface RoleRepositoryInterface
@@ -23,39 +23,39 @@ use Vima\Core\Entities\Role;
  */
 interface RoleRepositoryInterface
 {
-    public function findByName(string $name, ?string $namespace = null): ?Role;
+    public function findByName(string $name, ?string $namespace = null): ?BareRole;
 
     /**
      * Find a role by its unique identifier.
      *
      * @param int|string $id
-     * @return Role|null
+     * @return BareRole|null
      */
-    public function findById(int|string $id): ?Role;
+    public function findById(int|string $id): ?BareRole;
 
     /**
      * Retrieve all roles, optionally filtered by namespace.
      * 
      * @param string|null $namespace
-     * @return Role[]
+     * @return BareRole[]
      */
     public function all(?string $namespace = null): array;
 
     /**
      * Persist or update a role.
      *
-     * @param Role $role
-     * @return Role The persisted role entity.
+     * @param BareRole $role
+     * @return BareRole The persisted role entity.
      */
-    public function save(Role $role): Role;
+    public function save(BareRole $role): BareRole;
 
     /**
      * Remove a role from storage.
      *
-     * @param Role $role
+     * @param BareRole $role
      * @return void
      */
-    public function delete(Role $role): void;
+    public function delete(BareRole $role): void;
 
     /**
      * Remove all roles from storage.
@@ -63,20 +63,4 @@ interface RoleRepositoryInterface
      * @return void
      */
     public function deleteAll(): void;
-
-    /**
-     * Retrieve all parent roles for a given role.
-     *
-     * @param Role $role
-     * @return Role[]
-     */
-    public function getParents(Role $role): array;
-
-    /**
-     * Retrieve all child roles for a given role.
-     *
-     * @param Role $role
-     * @return Role[]
-     */
-    public function getChildren(Role $role): array;
 }

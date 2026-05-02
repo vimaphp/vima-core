@@ -46,18 +46,18 @@ interface PolicyRegistryInterface
      * @param string $ability The ability name.
      * @param string|null $namespace The namespace of the resource.
      * @param mixed ...$arguments Contextual arguments for evaluation.
-     * @return bool
+     * @return bool|\Vima\Core\DTOs\AccessResponse
      * @throws \Vima\Core\Exceptions\PolicyNotFoundException
      * @throws \Vima\Core\Exceptions\PolicyMethodNotFoundException
      */
-    public function evaluate(object $user, string $ability, ?string $namespace = null, ...$arguments): bool;
+    public function evaluate(object $user, string $ability, ?string $namespace = null, ...$arguments): bool|\Vima\Core\DTOs\AccessResponse;
 
     /**
      * Check if a policy exists for the given action.
      *
      * @param string $action
-     * @param mixed ...$arguments
+     * @param string|null $resource Optional resource to check for class-based policy existence.
      * @return bool
      */
-    public function has(string $action, ...$arguments): bool;
+    public function has(string $action, ?string $resource = null): bool;
 }

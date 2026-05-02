@@ -1,5 +1,6 @@
 <?php
 
+use Vima\Core\Contracts\AccessManagerInterface;
 use Vima\Core\Contracts\PolicyRegistryInterface;
 use Vima\Core\Contracts\RoleRepositoryInterface;
 use Vima\Core\DTOs\AccessContext;
@@ -17,7 +18,10 @@ beforeEach(function () {
 
     $policyRegistry = resolve(PolicyRegistryInterface::class);
 
-    $policyRegistry->register('posts.update', fn(User $u, $post) => $u->vimaGetId() === $post['ownerId']);
+    //$policyRegistry->register('posts.update', function (AccessContext $ctx, $post) {
+    //    dd($ctx);
+    //    return $ctx->resolveId() === $post['ownerId'];
+    //});
 
     $this->accessManager = resolve(AccessManager::class);
 });
@@ -88,8 +92,7 @@ it('delegates policy evaluation to registry', function () {
     initDependencies();
 
     $registry = resolve(PolicyRegistryInterface::class);
-    $registry->register('posts.update', fn(User $u, $post) => $u->vimaGetId() === $post['ownerId']);
-
+    $registry->register('posts.update', fn(AccessContext $ctx, $post) => $ctx->resolveId() === $post['ownerId']);
 
     $manager = resolve(AccessManager::class);
 
@@ -249,6 +252,10 @@ it('supports role inheritance', function () {
 
 it('supports role context', function () {
     /** @var \Vima\Core\Tests\ManagerTestCase $this */
+
+    /**
+     * @var AccessManagerInterface $manager
+     */
     $manager = resolve(AccessManager::class);
 
     $p1 = $manager->ensurePermission('project.view');
@@ -260,6 +267,8 @@ it('supports role context', function () {
     // Assign role for Project 101 only
     $manager->assignRole($user, $role);
 
+    //dd(resolve(RoleRepositoryInterface::class)->all(), $p1, $role, $user);
+
     // Should have permission for Project 101
     expect($manager->isPermitted($user, 'project.view', ['project_id' => 101]))->toBeTrue();
 
@@ -268,4 +277,146 @@ it('supports role context', function () {
 
     // With no context filter, it should return all assigned roles (default behavior in InMemory repo)
     expect($manager->isPermitted($user, 'project.view'))->toBeTrue();
+});
+
+it('respects explicit user denial even if role permits', function () {
+    $manager = resolve(AccessManager::class);
+    $user = new User(1);
+
+    // Grant via role
+    $permission = $manager->ensurePermission('posts.delete');
+    $role = $manager->ensureRole(Role::define('admin', [$permission]));
+    $manager->assignRole($user, $role);
+
+    // Verify permitted
+    expect($manager->can($user, 'posts.delete'))->toBeTrue();
+
+    // Explicitly deny
+    $manager->deny($user, 'posts.delete', 'Not allowed right now');
+
+    // Verify denied
+    expect($manager->can($user, 'posts.delete'))->toBeFalse();
+    expect($manager->isDenied($user, 'posts.delete'))->toBeTrue();
+
+    // Undeny and verify permitted again
+    $manager->undeny($user, 'posts.delete');
+    expect($manager->can($user, 'posts.delete'))->toBeTrue();
+});
+
+it('respects namespaces in permissions and denials', function () {
+    $manager = resolve(AccessManager::class);
+    $user = new User(1);
+
+    // Grant namespaced permission via role
+    $permission = $manager->ensurePermission('posts.publish', null, 'blog');
+    $role = $manager->ensureRole(Role::define('publisher', [$permission]));
+    $manager->assignRole($user, $role);
+
+    expect($manager->can($user, 'posts.publish', 'blog'))->toBeTrue();
+    expect($manager->can($user, 'blog:posts.publish'))->toBeTrue();
+
+    // Deny the namespaced permission
+    $manager->deny($user, 'blog:posts.publish');
+
+    expect($manager->can($user, 'posts.publish', 'blog'))->toBeFalse();
+    expect($manager->can($user, 'blog:posts.publish'))->toBeFalse();
+});
+
+it('can detach a role from a user', function () {
+    $manager = resolve(AccessManager::class);
+    $user = new UserMock(1);
+    $manager->addRole('temp');
+    $manager->assignRole($user, 'temp');
+
+    expect($manager->hasRole($user, 'temp'))->toBeTrue();
+
+    $manager->detachRole($user, 'temp');
+    expect($manager->hasRole($user, 'temp'))->toBeFalse();
+});
+
+it('can manage role parents directly', function () {
+    $manager = resolve(AccessManager::class);
+    $child = $manager->addRole('child');
+    $parent = $manager->addRole('parent');
+
+    $rp = $manager->updateRoleParent(new \Vima\Core\Entities\Bare\BareRoleParent(
+        role_id: $child->id,
+        parent_id: $parent->id
+    ));
+    expect($rp)->toBeInstanceOf(\Vima\Core\Entities\Bare\BareRoleParent::class);
+
+    $parents = $manager->getRoleParents($child);
+    expect($parents)->toHaveCount(1);
+
+    $manager->deleteRoleParent($rp);
+    expect($manager->getRoleParents($child))->toHaveCount(0);
+});
+
+it('can revoke direct permissions', function () {
+    $manager = resolve(AccessManager::class);
+    $user = new UserMock(1);
+    $manager->addPermission('direct.perm');
+    $manager->permit($user, 'direct.perm');
+
+    expect($manager->can($user, 'direct.perm'))->toBeTrue();
+
+    $manager->forbid($user, 'direct.perm');
+    expect($manager->can($user, 'direct.perm'))->toBeFalse();
+});
+
+it('retrieves user permissions with context', function () {
+    /**
+     * @var AccessManagerInterface $manager
+     */
+    $manager = resolve(AccessManager::class);
+    $user = new UserMock(1);
+
+    $p1 = $manager->ensurePermission('p1');
+    $p2 = $manager->ensurePermission('p2');
+
+    $role1 = $manager->addRole('r1');
+    $role1->permit($p1);
+    $role1->save();
+
+    $role2 = $manager->addRole('r2');
+    $role2->permit($p2);
+    $role2->save();
+
+    $manager->assignRole($user, $role1); // global
+    $manager->assignRole($user, $role2); // contextual
+
+    $perms = $manager->getUserPermissions($user);
+    expect($perms)->toHaveCount(2);
+
+    $contextPerms = $manager->getUserPermissions($user, ['org' => 1]);
+    expect($contextPerms)->toHaveCount(1);
+    expect($contextPerms[0]->name)->toBe('p2');
+})->skip('Contextual permissions not fully implemented yet');
+
+it('can register policies via govern', function () {
+    /**
+     * @var AccessManagerInterface $manager
+     */
+    $manager = resolve(AccessManager::class);
+    $user = new UserMock(1);
+
+    $manager->govern('posts.edit', fn(AccessContext $ctx) => $ctx->resolveId() === 1);
+
+    expect($manager->can($user, 'posts.edit', null, ['post']))->toBeTrue();
+    expect($manager->can(new UserMock(2), 'posts.edit', null, ['post']))->toBeFalse();
+});
+
+it('retrieves roles and permissions with various filters', function () {
+    $manager = resolve(AccessManager::class);
+    $manager->addRole('r1', namespace: 'ns1');
+    $manager->addPermission('p1', namespace: 'ns1');
+
+    expect($manager->getRoles('ns1'))->toHaveCount(1);
+    expect($manager->getPermissions('ns1'))->toHaveCount(1);
+
+    $user = new UserMock(1);
+    $manager->deny($user, 'ns1:p1');
+
+    $perms = $manager->getPermissions('ns1', $user);
+    expect($perms[0]->denied)->toBeTrue();
 });

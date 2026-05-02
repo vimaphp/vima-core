@@ -23,6 +23,8 @@ final class Tables
         public string $userPermissions = 'user_permissions',
         public string $roleParents = 'role_parents',
         public string $userDenies = 'user_denies',
+        public string $userRoleDenies = 'user_role_denies',
+        public string $auditLogs = 'vima_audit_logs',
     ) {
     }
 }

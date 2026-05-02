@@ -3,15 +3,12 @@
 namespace Vima\Core\Tests\Fixtures\Storage;
 
 use Vima\Core\Contracts\RoleRepositoryInterface;
-use Vima\Core\Entities\Role;
+use Vima\Core\Entities\Bare\BareRole;
 use Vima\Core\Contracts\EventDispatcherInterface;
-use Vima\Core\Contracts\RoleParentRepositoryInterface;
-
-use function Vima\Core\resolve;
 
 class InMemoryRoleRepository implements RoleRepositoryInterface
 {
-    /** @var Role[] */
+    /** @var BareRole[] */
     private array $roles = [];
 
     private int $id = 1;
@@ -21,49 +18,38 @@ class InMemoryRoleRepository implements RoleRepositoryInterface
     ) {
     }
 
-    public function find(int|string $id): ?Role
+    public function findById(int|string $id): ?BareRole
     {
-        return $this->findById($id);
-    }
-
-    public function findById(int|string $id): ?Role
-    {
-        $role = null;
         foreach ($this->roles as $r) {
             if ($r->id == $id) {
-                $role = $r;
-                break;
+                return $r;
             }
         }
 
-        if (!$role) {
-            return null;
-        }
-
-        return $role;
+        return null;
     }
 
-    public function findByName(string $name, ?string $namespace = null): ?Role
+    public function findByName(string $name, ?string $namespace = null): ?BareRole
     {
-        $key = $namespace . ':' . $name;
+        $key = ($namespace ?? 'global') . ':' . $name;
         return $this->roles[$key] ?? null;
     }
 
-    public function save(Role $role): Role
+    public function save(BareRole $role): BareRole
     {
         if (!$role->id) {
             $role->id = $this->id++;
         }
 
-        $key = $role->namespace . ':' . $role->name;
+        $key = ($role->namespace ?? 'global') . ':' . $role->name;
         $this->roles[$key] = $role;
 
         return $role;
     }
 
-    public function delete(Role $role): void
+    public function delete(BareRole $role): void
     {
-        $key = $role->namespace . ':' . $role->name;
+        $key = ($role->namespace ?? 'global') . ':' . $role->name;
         unset($this->roles[$key]);
     }
 
@@ -78,20 +64,9 @@ class InMemoryRoleRepository implements RoleRepositoryInterface
         return array_values($filtered);
     }
 
-    public function getChildren(Role $role): array
-    {
-        $parentRepo = resolve(RoleParentRepositoryInterface::class);
-        return $parentRepo->getChildren($role);
-    }
-
-    public function getParents(Role $role): array
-    {
-        $parentRepo = resolve(RoleParentRepositoryInterface::class);
-        return $parentRepo->getParents($role);
-    }
-
     public function deleteAll(): void
     {
         $this->roles = [];
+        $this->id = 1;
     }
 }

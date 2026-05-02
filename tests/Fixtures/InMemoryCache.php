@@ -1,6 +1,6 @@
 <?php
 
-namespace Vima\Core\Services;
+namespace Vima\Core\Tests\Fixtures;
 
 use Vima\Core\Contracts\CacheInterface;
 

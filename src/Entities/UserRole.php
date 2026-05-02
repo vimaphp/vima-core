@@ -8,66 +8,84 @@
  * file that was distributed with this source code.
  */
 
-
 declare(strict_types=1);
 
 namespace Vima\Core\Entities;
 
 use Vima\Core\Contracts\AccessManagerInterface;
-use Vima\Core\Contracts\RoleRepositoryInterface;
 use Vima\Core\Contracts\UserRepositoryInterface;
+use Vima\Core\Entities\Bare\BareUserRole;
 use function Vima\Core\resolve;
 
+/**
+ * Class UserRole
+ * 
+ * Represents the assignment of a role to a user.
+ */
 class UserRole
 {
     public function __construct(
-        public string|int $user_id,
-        public int|string $role_id,
-        public array $context = [],
-        public string|int|null $id = null,
+        public int|string|null $user_id = null,
+        public int|string|null $role_id = null,
+        public int|string|null $id = null,
+        public ?array $context = [],
+        public ?Role $role = null,
+        public ?object $user = null
     ) {
     }
 
-    public static function define(int|string $user_id, int|string $role_id, array $context = []): UserRole
+    public static function define(int|string $userId, int|string $roleId, array $context = []): self
     {
-        return new self(role_id: $role_id, user_id: $user_id, context: $context);
+        return new self(user_id: $userId, role_id: $roleId, context: $context);
     }
 
     public function save(): self
     {
         /** @var AccessManagerInterface $manager */
         $manager = resolve(AccessManagerInterface::class);
-        return $manager->updateUserRole($this);
+        $bare = new BareUserRole($this->id, $this->user_id, $this->role_id, $this->context);
+        $saved = $manager->updateUserRole($bare);
+        $this->id = $saved->id;
+        return $this;
     }
 
     public function delete(): void
     {
         /** @var AccessManagerInterface $manager */
         $manager = resolve(AccessManagerInterface::class);
-        $manager->deleteUserRole($this);
+        $bare = new BareUserRole($this->id, $this->user_id, $this->role_id, $this->context);
+        $manager->deleteUserRole($bare);
     }
 
-    /**
-     * Get the role entity.
-     *
-     * @return Role
-     */
-    public function getRole(): Role
+    public function getRole(): ?Role
     {
-        /** @var RoleRepositoryInterface $repo */
-        $repo = resolve(RoleRepositoryInterface::class);
-        return $repo->findById($this->role_id);
+        if ($this->role) {
+            return $this->role;
+        }
+
+        if (!$this->role_id) {
+            return null;
+        }
+
+        /** @var \Vima\Core\Services\RoleManager $manager */
+        $manager = resolve(\Vima\Core\Services\RoleManager::class);
+        $this->role = $manager->resolveRole($this->role_id, isId: true);
+        return $this->role;
     }
 
-    /**
-     * Get the resolved user object.
-     *
-     * @return object|null
-     */
     public function getUser(): ?object
     {
+        if ($this->user) {
+            return $this->user;
+        }
+
+        if (!$this->user_id) {
+            return null;
+        }
+
         /** @var UserRepositoryInterface $repo */
         $repo = resolve(UserRepositoryInterface::class);
-        return $repo->findById($this->user_id);
+        $this->user = $repo->findById($this->user_id);
+        return $this->user;
     }
 }

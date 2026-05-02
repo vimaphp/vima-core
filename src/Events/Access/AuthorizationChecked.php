@@ -16,14 +16,15 @@ class AuthorizationChecked extends Event
 {
     public const string NAME = 'vima.access.authorization_checked';
 
-    public function __construct(object|string $user, string $permission, bool $result, ?string $namespace = null, array $arguments = [])
+    public function __construct(object|string $user, string $permission, bool $result, ?string $namespace = null, array $arguments = [], ?string $reason = null)
     {
         parent::__construct([
             'user' => $user,
             'permission' => $permission,
             'namespace' => $namespace,
             'arguments' => $arguments,
-            'result' => $result
+            'result' => $result,
+            'reason' => $reason
         ]);
     }
 }

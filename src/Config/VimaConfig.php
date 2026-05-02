@@ -32,6 +32,11 @@ class VimaConfig
      * @param UserMethods $userMethods Mapping for user object methods.
      * @param Closure|null $registerPolicies Callback to register ABAC policies.
      * @param Closure|null $userResolver Custom user resolver logic.
+     * @param bool $cacheEnabled Enable or disable caching of permissions.
+     * @param int $cacheTTL Time-to-live for cache entries in seconds.
+     * @param string $cachePrefix Prefix for cache keys.
+     * @param SuperAdmin|string|null $superAdminRole Role name or object representing the super admin role.
+     * @param bool $superAdminBypass Whether super admins bypass all permission checks
      */
     public function __construct(
         public Tables $tables = new Tables(),

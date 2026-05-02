@@ -4,29 +4,31 @@ declare(strict_types=1);
 namespace Vima\Core\Tests\Fixtures\Storage;
 
 use Vima\Core\Contracts\RolePermissionRepositoryInterface;
-use Vima\Core\Entities\{Role, Permission, RolePermission};
+use Vima\Core\Entities\Bare\BareRole;
+use Vima\Core\Entities\Bare\BarePermission;
+use Vima\Core\Entities\Bare\BareRolePermission;
 
 class InMemoryRolePermissionRepository implements RolePermissionRepositoryInterface
 {
-    /** @var RolePermission[] */
+    /** @var BareRolePermission[] */
     private array $rolePermissions = [];
 
-    public function getRolePermissions(Role $role): array
+    public function getRolePermissions(BareRole $role): array
     {
         return array_values(
             array_filter(
                 $this->rolePermissions,
-                fn(RolePermission $rp) => (string) $rp->role_id === (string) $role->id
+                fn(BareRolePermission $rp) => (string) $rp->role_id === (string) $role->id
             )
         );
     }
 
-    public function getPermissionRoles(Permission $permission): array
+    public function getPermissionRoles(BarePermission $permission): array
     {
         return array_values(
             array_filter(
                 $this->rolePermissions,
-                fn(RolePermission $rp) => (string) $rp->permission_id === (string) $permission->id
+                fn(BareRolePermission $rp) => (string) $rp->permission_id === (string) $permission->id
             )
         );
     }
@@ -36,7 +38,7 @@ class InMemoryRolePermissionRepository implements RolePermissionRepositoryInterf
         return array_values($this->rolePermissions);
     }
 
-    public function assign(RolePermission $permission): void
+    public function assign(BareRolePermission $permission): void
     {
         // prevent duplicates (same role_id + permission_id)
         foreach ($this->rolePermissions as $rp) {
@@ -44,6 +46,7 @@ class InMemoryRolePermissionRepository implements RolePermissionRepositoryInterf
                 (string) $rp->role_id === (string) $permission->role_id &&
                 (string) $rp->permission_id === (string) $permission->permission_id
             ) {
+                $rp->constraints = $permission->constraints;
                 return;
             }
         }
@@ -56,12 +59,12 @@ class InMemoryRolePermissionRepository implements RolePermissionRepositoryInterf
         $this->rolePermissions[] = $permission;
     }
 
-    public function revoke(RolePermission $permission): void
+    public function revoke(BareRolePermission $permission): void
     {
         $this->rolePermissions = array_values(
             array_filter(
                 $this->rolePermissions,
-                fn(RolePermission $rp) =>
+                fn(BareRolePermission $rp) =>
                 !(
                     (string) $rp->role_id === (string) $permission->role_id &&
                     (string) $rp->permission_id === (string) $permission->permission_id

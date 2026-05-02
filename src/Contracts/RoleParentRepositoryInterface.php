@@ -12,8 +12,8 @@ declare(strict_types=1);
 
 namespace Vima\Core\Contracts;
 
-use Vima\Core\Entities\Role;
-use Vima\Core\Entities\RoleParent;
+use Vima\Core\Entities\Bare\BareRole;
+use Vima\Core\Entities\Bare\BareRoleParent;
 
 /**
  * Interface RoleParentRepositoryInterface
@@ -27,40 +27,40 @@ interface RoleParentRepositoryInterface
     /**
      * Map a role to its parent relationship.
      *
-     * @param RoleParent $relationship
+     * @param BareRoleParent $relationship
      * @return void
      */
-    public function assign(RoleParent $relationship): void;
+    public function assign(BareRoleParent $relationship): void;
 
     /**
      * Remove a role's inheritance from another role.
      *
-     * @param RoleParent $relationship
+     * @param BareRoleParent $relationship
      * @return void
      */
-    public function remove(RoleParent $relationship): void;
+    public function remove(BareRoleParent $relationship): void;
 
     /**
      * Clear all parents for a role.
      *
-     * @param Role $role
+     * @param BareRole $role
      * @return void
      */
-    public function clearParents(Role $role): void;
+    public function clearParents(BareRole $role): void;
 
     /**
-     * Retrieve all parent IDs for a given role.
+     * Retrieve all parent relationship records for a given role.
      *
-     * @param Role $role
-     * @return Role[]
+     * @param BareRole $role
+     * @return BareRoleParent[]
      */
-    public function getParents(Role $role): array;
+    public function getParents(BareRole $role): array;
 
     /**
-     * Retrieve all child IDs for a given role.
+     * Retrieve all child relationship records for a given role.
      *
-     * @param Role $role
-     * @return Role[]
+     * @param BareRole $role
+     * @return BareRoleParent[]
      */
-    public function getChildren(Role $role): array;
+    public function getChildren(BareRole $role): array;
 }

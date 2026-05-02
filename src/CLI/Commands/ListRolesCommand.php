@@ -37,9 +37,9 @@ final class ListRolesCommand extends Command
 
     public function execute(InputInterface $input, OutputInterface $output): int
     {
-        /** @var RoleRepositoryInterface $repository */
-        $repository = resolve(RoleRepositoryInterface::class);
-        $roles = $repository->all();
+        /** @var \Vima\Core\Services\RoleManager $manager */
+        $manager = resolve(\Vima\Core\Services\RoleManager::class);
+        $roles = $manager->all(resolve: true);
 
         if (empty($roles)) {
             $output->writeln('<comment>No roles found.</comment>');

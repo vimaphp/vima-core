@@ -19,6 +19,11 @@ use Vima\Core\Contracts\RoleRepositoryInterface;
 use Vima\Core\Contracts\PermissionRepositoryInterface;
 use Exception;
 
+use Vima\Core\Services\RoleManager;
+use Vima\Core\Services\PermissionManager;
+use Vima\Core\Exceptions\RoleNotFoundException;
+use Vima\Core\Exceptions\PermissionNotFoundException;
+
 /**
  * Class AccessResolver
  * 
@@ -28,8 +33,8 @@ class AccessResolver
 {
     public function __construct(
         private Setup $setup,
-        private RoleRepositoryInterface $roles,
-        private PermissionRepositoryInterface $permissions
+        private RoleManager $roleManager,
+        private PermissionManager $permissionManager
     ) {
     }
 
@@ -38,7 +43,7 @@ class AccessResolver
      *
      * @param string|Role $role Role name or object.
      * @return Role
-     * @throws Exception If role is not defined in Setup or not found in storage.
+     * @throws RoleNotFoundException If role is not defined in Setup or not found in storage.
      */
     public function role(string|Role $role): Role
     {
@@ -54,14 +59,14 @@ class AccessResolver
         }
 
         if (!$defined) {
-            throw new Exception("Role '{$name}' is not defined in the application Setup.");
+            throw new RoleNotFoundException("Role '{$name}' is not defined in the application Setup.");
         }
 
         // 2. Fetch from storage to ensure it's synced
-        $stored = $this->roles->findByName($name);
+        $stored = $this->roleManager->find($name);
 
         if (!$stored) {
-            throw new Exception("Role '{$name}' exists in Setup but was not found in storage. Did you sync?");
+            throw new RoleNotFoundException("Role '{$name}' exists in Setup but was not found in storage. Did you sync?");
         }
 
         return $stored;
@@ -72,7 +77,7 @@ class AccessResolver
      *
      * @param string|Permission $permission Permission name or object.
      * @return Permission
-     * @throws Exception If permission is not defined in Setup or not found in storage.
+     * @throws PermissionNotFoundException If permission is not defined in Setup or not found in storage.
      */
     public function permission(string|Permission $permission): Permission
     {
@@ -100,14 +105,14 @@ class AccessResolver
         }
 
         if (!$defined) {
-            throw new Exception("Permission '{$name}' is not defined in the application Setup.");
+            throw new PermissionNotFoundException("Permission '{$name}' is not defined in the application Setup.");
         }
 
         // 2. Fetch from storage
-        $stored = $this->permissions->findByName($name);
+        $stored = $this->permissionManager->find($name);
 
         if (!$stored) {
-            throw new Exception("Permission '{$name}' exists in Setup but was not found in storage. Did you sync?");
+            throw new PermissionNotFoundException("Permission '{$name}' exists in Setup but was not found in storage. Did you sync?");
         }
 
         return $stored;

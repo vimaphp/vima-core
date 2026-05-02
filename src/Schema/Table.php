@@ -74,4 +74,12 @@ class Table
     {
         return $this->uniqueKeys;
     }
+
+    /**
+     * @return ForeignKey[]
+     */
+    public function getForeignKeys(): array
+    {
+        return $this->foreignKeys;
+    }
 }
